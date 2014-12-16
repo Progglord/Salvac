@@ -1,4 +1,19 @@
-﻿using System;
+﻿// Salvac
+// Copyright (C) 2014 Oliver Schmidt
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+using System;
 using System.Globalization;
 
 namespace Salvac.Data.Types
@@ -126,7 +141,7 @@ namespace Salvac.Data.Types
         public static bool operator ==(Speed left, Speed right)
         {
             SpeedUnit comparisonUnit = (SpeedUnit)Math.Min((int)left.Unit, (int)right.Unit);
-            return Utils.FloatingEqual(left.AsUnit(comparisonUnit), right.AsUnit(comparisonUnit), 1e-10d);
+            return Utils.FloatingEqual(left.AsUnit(comparisonUnit), right.AsUnit(comparisonUnit), 1e-5d);
         }
 
         public static bool operator !=(Speed left, Speed right)

@@ -19,6 +19,9 @@ bld/
 # Roslyn cache directories
 *.ide/
 
+# License Header Manager
+.licenseheader
+
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
