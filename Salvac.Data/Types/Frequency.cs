@@ -23,56 +23,63 @@ namespace Salvac.Data.Types
 {
     public struct Frequency : IEquatable<Frequency>, IFormattable
     {
-        private readonly double _value;
+        private readonly int _hertz;
+
+        public int AsHertz
+        { get { return _hertz; } }
+
+        public double AsKiloHertz
+        { get { return (double)_hertz / 1000d; } }
+
         public double AsMegaHertz
-        { get { return _value; } }
+        { get { return this.AsKiloHertz / 1000d; } }
 
 
         public bool IsHf
-        { get { return 3d <= _value && _value < 30d; } }
+        { get { return 3000000d <= _hertz && _hertz < 30000000d; } }
 
         public bool IsVhf
-        { get { return 30d <= _value && _value < 300d; } }
+        { get { return 30000000d <= _hertz && _hertz < 300000000d; } }
 
         public bool IsUhf
-        { get { return 300d <= _value && _value <= 3000d; } }
+        { get { return 300000000d <= _hertz && _hertz <= 3000000000d; } }
 
         public bool IsAtc
-        { get { return 117.975d <= _value && _value <= 137d; } }
+        { get { return 117975000d <= _hertz && _hertz <= 137000000d; } }
 
         public bool IsDme
-        { get { return 962d <= _value && _value <= 1213d; } }
+        { get { return 962000000d <= _hertz && _hertz <= 1213000000d; } }
 
         public bool IsVor
-        { get { return 108d <= _value && _value <= 117.975d; } }
+        { get { return 108000000d <= _hertz && _hertz <= 117975000d; } }
 
         public bool IsLocalizer
-        { get { return 108.1d <= _value && _value <= 111.95d; } }
+        { get { return 108100000d <= _hertz && _hertz <= 111950000d; } }
 
         public bool IsGlideslope
-        { get { return 329d <= _value && _value <= 335d; } }
+        { get { return 329000000d <= _hertz && _hertz <= 335000000d; } }
 
         public bool IsMarker
-        { get { return 74.6d <= _value && _value <= 75.4d; } }
+        { get { return 74600000d <= _hertz && _hertz <= 75400000d; } }
 
         public bool IsNdb
-        { get { return 190d <= _value && _value <= 1750d; } }
+        { get { return 190000000d <= _hertz && _hertz <= 1750000000d; } }
 
         public bool IsTacan
-        { get { return 962d <= _value && _value <= 1213d; } }
+        { get { return 962000000d <= _hertz && _hertz <= 1213000000d; } }
 
 
-        /// <param name="value">Frequency in MegaHertz (mHz).</param>
-        public Frequency(double value)
+        /// <param name="value">Frequency in Hertz.</param>
+        public Frequency(int hertz)
         {
-            if (value <= 0) throw new ArgumentException("A frequency shall not be zero or negative.");
-            _value = value;
+            if (hertz <= 0) throw new ArgumentException("A frequency shall not be zero or negative.");
+            _hertz = hertz;
         }
 
 
         public static bool operator ==(Frequency left, Frequency right)
         {
-            return Utils.FloatingEqual(left.AsMegaHertz, right.AsMegaHertz, 1e-3);
+            return left._hertz == right._hertz;
         }
 
         public static bool operator !=(Frequency left, Frequency right)
@@ -91,22 +98,22 @@ namespace Salvac.Data.Types
 
         public bool Equals(Frequency other)
         {
-            return this.AsMegaHertz == other.AsMegaHertz;
+            return this._hertz == other._hertz;
         }
 
         public override int GetHashCode()
         {
-            return _value.GetHashCode();
+            return _hertz.GetHashCode();
         }
 
         public override string ToString()
         {
-            return _value.ToString("0.000");
+            return this.AsMegaHertz.ToString("0.000mHz");
         }
 
         public string ToString(string format, IFormatProvider formatProvider)
         {
-            return _value.ToString(format, formatProvider);
+            return _hertz.ToString(format, formatProvider);
         }
     }
 }
