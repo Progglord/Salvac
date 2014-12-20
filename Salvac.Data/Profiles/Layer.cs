@@ -34,8 +34,8 @@ namespace Salvac.Data.Profiles
             }
         }
 
-        private LayerTheme _theme;
-        public LayerTheme Theme
+        private GeometryTheme _theme;
+        public GeometryTheme Theme
         {
             get { return _theme; }
             set
@@ -45,8 +45,8 @@ namespace Salvac.Data.Profiles
             }
         }
 
-        private SortedEnablingSet<long> _content;
-        public SortedEnablingSet<long> Content
+        private IList<long> _content;
+        public IList<long> Content
         {
             get { return _content; }
             set
@@ -57,15 +57,15 @@ namespace Salvac.Data.Profiles
         }
 
 
-        public Layer(string name, SortedEnablingSet<long> content, LayerTheme theme)
+        public Layer(string name, IList<long> content, GeometryTheme theme)
         {
             this.Name = name;
             this.Theme = theme;
             this.Content = content;
         }
 
-        public Layer(string name, LayerTheme theme) :
-            this(name, new SortedEnablingSet<long>(Comparer<long>.Default), theme)
+        public Layer(string name, GeometryTheme theme) :
+            this(name, new List<long>(), theme)
         { }
 
 

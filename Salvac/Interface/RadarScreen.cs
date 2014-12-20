@@ -31,201 +31,284 @@ using TextRenderer = Salvac.Interface.Rendering.TextRenderer;
 using Salvac.Data.Types;
 using Salvac.Data.Profiles;
 using System.Diagnostics;
+using Salvac.Sessions;
+using Salvac.Data.World;
 
 namespace Salvac.Interface
 {
-    public class RadarScreen : IMouseListener, IDisposable
+    public class RadarScreen : IDisposable
     {
-        private MainWindow _window;
-        private bool _disposed;
-        private bool _loaded;
+        private GLControl _window;
 
         private Viewport _viewport;
-
         private TextRenderer _textRenderer;
-        private IList<LayerRenderer> _layerRenderers;
 
-        private Font _labelFont;
+        private PriorityCollection<IInputListener> _inputListeners;
+        private PriorityCollection<IRenderable> _renderables;
+
+        public bool IsDisposed
+        { get; private set; }
+
+        public bool IsLoaded
+        { get; private set; }
 
 
-        public RadarScreen(MainWindow window)
+        public RadarScreen(GLControl window)
         {
             if (window == null) throw new ArgumentNullException("window");
             _window = window;
 
-            _disposed = false;
-            _loaded = false;
+            this.IsDisposed = false;
+            this.IsLoaded = false;
 
-            _viewport = new Viewport(window.glWindow.Width, window.glWindow.Height);
-            _viewport.PlainMove(Vector2.Zero, 0.0004f - 1f);
+            _viewport = new Viewport(window.Width, window.Height);
+            _inputListeners = new PriorityCollection<IInputListener>(l => l.InputPriority);
+            _renderables = new PriorityCollection<IRenderable>(r => r.RenderPriority);
 
-            _textRenderer = new TextRenderer(window);
-            _layerRenderers = new List<LayerRenderer>();
-
-            _labelFont = new Font("Terminal", 10);
+            _textRenderer = new TextRenderer(_viewport);
         }
+
+        public void AddRenderables(bool load, params IRenderable[] renderables)
+        {
+            if (renderables == null) throw new ArgumentNullException("renderables");
+            if (renderables.Any(r => r == null || r.IsDisposed)) throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
+
+            if (load)
+            {
+                foreach (IRenderable renderable in renderables)
+                {
+                    renderable.Load();
+                    renderable.Updated += (s, e) => { _window.Invalidate(); };
+                }
+            }
+            else
+            {
+                foreach (IRenderable renderable in renderables)
+                    renderable.Updated += (s, e) => { _window.Invalidate(); };
+            }
+
+            _renderables.AddRange(renderables);
+            _inputListeners.AddRange(renderables.Where(r => r is IInputListener).Select(r => r as IInputListener));
+
+            _window.Invalidate();
+        }
+
+        public void AddRenderables(params IRenderable[] renderables)
+        {
+            this.AddRenderables(false, renderables);
+        }
+
+        public void RemoveRenderables(params IRenderable[] renderables)
+        {
+            if (renderables == null) throw new ArgumentNullException("renderables");
+
+            foreach (IRenderable renderable in renderables)
+            {
+                if (renderable != null)
+                {
+                    _renderables.Remove(renderable);
+
+                    if (renderable is IInputListener)
+                        _inputListeners.Remove(renderable as IInputListener);
+                }
+            }
+
+            _window.Invalidate();
+        }
+
 
         public void Load()
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (this.IsLoaded) return;
+            if (!ProfileManager.Current.IsLoaded) throw new NoProfileException();
 
+            // Load TextRenderer and Renderables
             _textRenderer.Load();
-            foreach (Layer layer in ProfileManager.Current.Profile.Layers)
-                _layerRenderers.Add(new LayerRenderer(layer, ProfileManager.Current.Profile.SectorView.Name));
+            this.AddRenderables(true, new EnvironmentRenderer(), new DebugScreen(_textRenderer));
 
-            double[] xy = new double[] { 8d, 53d };
-            double[] z = new double[1];
+            // Setup viewport
+            LoadViewport();
 
-            // SRID 4839
-            var proj = ProjectionInfo.FromProj4String("+proj=lcc +lat_1=48.66666666666666 +lat_2=53.66666666666666 +lat_0=51 +lon_0=10.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
-            Reproject.ReprojectPoints(xy, z, KnownCoordinateSystems.Geographic.World.WGS1984, proj, 0, 1);
-            Vector2 pos = new Vector2();
-            pos.X = (float)Distance.FromMeters(xy[0]).AsNauticalMiles;
-            pos.Y = (float)Distance.FromMeters(xy[1]).AsNauticalMiles;
-            _viewport.PlainMove(pos, 0f);
+            // Setup events
+            _window.Resize += (s, e) =>
+            { _viewport.Resize(_window.ClientSize.Width, _window.ClientSize.Height); };
 
-            _window.AddMouseListener(this);
-            _window.glWindow.Resize += (s, e) =>
-            {
-                _viewport.Resize(_window.glWindow.Width, _window.glWindow.Height);
-            };
+            SessionManager.Current.SessionOpened += SessionLoaded;
+            SessionManager.Current.SessionClosed += SessionClosed;
 
-            _loaded = true;
+            // Load session if there is any
+            if (SessionManager.Current.IsLoaded)
+                SessionLoaded(null, EventArgs.Empty);
+
+            this.IsLoaded = true;
         }
 
+        private void LoadViewport()
+        {
+            // Get maximum bounding rectangle
+            using (var cmd = WorldManager.Current.Model.CreateCommand())
+            {
+                string geom = string.Format("ST_Transform(geometry, {0})", ProfileManager.Current.Profile.ProjectionId);
+                cmd.CommandText = string.Format("SELECT min(ST_MinX({0})) AS minX, min(ST_MinY({0})) as minY, max(ST_MaxX({0})) as maxX, max(ST_MaxY({0})) as maxY ", geom);
+                cmd.CommandText += string.Format("FROM {0}", ProfileManager.Current.Profile.SectorView.Name);
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (!reader.Read() || !SpatiaLiteHelper.CheckRow(reader))
+                    {
+                        Debug.WriteLine("Could not load maximum bounding rectangle for current sector view.");
+                        return;
+                    }
+
+                    double minX = (double)reader["minX"];
+                    double minY = (double)reader["minY"];
+                    double maxX = (double)reader["maxX"];
+                    double maxY = (double)reader["maxY"];
+
+                    RectangleF boundingRectangle = new RectangleF((float)minX, (float)minY, (float)(maxX - minX), (float)(maxY - minY));
+                    _viewport.ZoomToRectangle(boundingRectangle);
+                }
+            }
+        }
+
+        private void SessionLoaded(object sender, EventArgs e)
+        {
+            this.AddRenderables(true, SessionManager.Current.Session.Entities.Where(p => p is IPilot).Select(p => new PilotRenderer(p as IPilot, _textRenderer)).ToArray());
+
+            SessionManager.Current.Session.EntityAdded += (_s, _e) =>
+            {
+                if (_e.Entity is IPilot)
+                    this.AddRenderables(true, new PilotRenderer(_e.Entity as IPilot, _textRenderer));
+            };
+        }
+
+        private void SessionClosed(object sender, EventArgs e)
+        {
+            this.RemoveRenderables(_renderables.Where(r => r is PilotRenderer).ToArray());
+        }
 
         public void Render()
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return;
-
-#if DEBUG
-            DebugInfo.DrawnSectorBackgrounds = 0;
-            DebugInfo.DrawnSectorBoundaries = 0;
-#endif
-
-            GL.MatrixMode(MatrixMode.Modelview);
-            GL.PushMatrix();
-
-            _viewport.LoadView();
-
-
-            foreach (LayerRenderer renderer in _layerRenderers.Where(l => ProfileManager.Current.Profile.Layers.IsEnabled(l.Layer)))
-                renderer.RenderBackground(_viewport);
-            foreach (LayerRenderer renderer in _layerRenderers.Where(l => ProfileManager.Current.Profile.Layers.IsEnabled(l.Layer)))
-                renderer.RenderLines(_viewport);
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return;
 
             _textRenderer.Begin();
-#if DEBUG
-            _textRenderer.DrawString(string.Format("Time: {5:00.000}ms ({6:000} FPS), Viewport: {0:000.000}, {1:000.000} Zoom: {2:00.00}, Rendered Backgrounds: {3}, Rendered Boundaries: {4}", 
-                _viewport.Position.X, _viewport.Position.Y, _viewport.Zoom, DebugInfo.DrawnSectorBackgrounds, DebugInfo.DrawnSectorBoundaries,
-                DebugInfo.LastFrameTime * 1000d, 1 / DebugInfo.LastFrameTime),
-                _labelFont, Brushes.White, new Vector2(0, 30));
+
+            foreach (IRenderable renderable in _renderables)
+            {
+                if (renderable.IsEnabled && renderable.IsLoaded)
+                    renderable.Render(_viewport);
+            }
+
             _textRenderer.End();
-#endif
-
-            GL.PopMatrix();
         }
 
-        private void DrawLabel(string callsign, string flightLevel, string verticalRate, string speed, string labelWp, string destination, string aircraft, Vector2 position)
-        {
-            StringBuilder builder = new StringBuilder();
-            builder.AppendLine(callsign);
-            builder.Append(flightLevel);
-            builder.Append(" ");
-            builder.AppendLine(verticalRate);
-            builder.Append(speed);
-            builder.Append(" ");
-            builder.AppendLine(labelWp);
-            builder.Append(destination);
-            builder.Append(" ");
-            builder.Append(aircraft);
 
-            _textRenderer.DrawString(builder.ToString(), _labelFont, Brushes.White, position);
-        }
-
-        #region User Interaction
-
-        //public void EnableLayer(string layer, bool enabled)
-        //{
-        //    LayerRenderer renderer = _layerRenderers.Where(r => string.Equals(r.Layer.Name, layer)).FirstOrDefault();
-        //    if (renderer != null)
-        //        renderer.Enabled = enabled;
-        //}
-
-        #endregion
-
-        #region IMouseListener
-
-        public int Priority
-        {
-            get { return -1; }
-        }
-
-        public bool IsMouseOverListener(Vector2 position)
-        {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return false;
-
-            return _window.glWindow.ClientRectangle.Contains((int)position.X, (int)position.Y);
-        }
+        #region Input listeners
 
         public void MouseClick(MouseButtons button, Vector2 position)
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return;
+
+            foreach (IInputListener listener in _inputListeners)
+            {
+                if (listener.IsMouseOver(position))
+                {
+                    if (listener.MouseClick(button, position))
+                        return;
+                }
+            }
         }
 
         public void MouseDoubleClick(MouseButtons button, Vector2 position)
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return;
+
+            foreach (IInputListener listener in _inputListeners)
+            {
+                if (listener.IsMouseOver(position))
+                {
+                    if (listener.MouseDoubleClick(button, position))
+                        return;
+                }
+            }
         }
 
-        public void MouseDrag(MouseButtons button, Vector2 delta, float wheelDelta)
+        public void MouseDrag(MouseButtons button, Vector2 position, Vector2 delta, float wheelDelta)
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return;
+
+            foreach (IInputListener listener in _inputListeners)
+            {
+                if (listener.IsMouseOver(position))
+                {
+                    if (listener.MouseDrag(button, position, delta, wheelDelta))
+                        return;
+                }
+            }
 
             if (button == MouseButtons.Left)
             {
                 delta.X = -delta.X;
                 _viewport.AdjustedMove(delta, wheelDelta / 500f);
-                _window.glWindow.Invalidate();
+                _window.Invalidate();
             }
         }
 
         public void MouseMove(Vector2 position, float wheelDelta)
         {
-            if (_disposed) throw new ObjectDisposedException("RadarScreen");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return;
+
+            foreach (IInputListener listener in _inputListeners)
+            {
+                if (listener.IsMouseOver(position))
+                {
+                    if (listener.MouseMove(position, wheelDelta))
+                        return;
+                }
+            }
 
             if (wheelDelta != 0)
             {
                 _viewport.AdjustedMove(Vector2.Zero, wheelDelta / 1000f);
-                _window.glWindow.Invalidate();
+                _window.Invalidate();
             }
+        }
+
+        public bool KeyPress(Keys keys)
+        {
+            if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
+            if (!this.IsLoaded) return false;
+
+            foreach (IInputListener listener in _inputListeners)
+            {
+                if (listener.KeyPress(keys))
+                    return true;
+            }
+
+            return false;
         }
 
         #endregion
 
+
         private void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (!this.IsDisposed)
             {
                 if (disposing)
                 {
                     if (_textRenderer != null)
                         _textRenderer.Dispose();
-                    if (_layerRenderers != null)
-                    {
-                        foreach (LayerRenderer renderer in _layerRenderers)
-                            renderer.Dispose();
-                    }
-                    _labelFont.Dispose();
+                    foreach (IRenderable renderable in _renderables)
+                        renderable.Dispose();
                 }
-                _disposed = true;
+                this.IsDisposed = true;
             }
         }
 

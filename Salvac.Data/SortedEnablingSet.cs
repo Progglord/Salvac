@@ -25,9 +25,9 @@ namespace Salvac.Data
     {
         private sealed class Comparer : IComparer<KeyValuePair<T, bool>>
         {
-            public IComparer<T> TComparer;
+            public Comparison<T> TComparer;
 
-            public Comparer(IComparer<T> tComparer)
+            public Comparer(Comparison<T> tComparer)
             {
                 TComparer = tComparer;
             }
@@ -37,7 +37,7 @@ namespace Salvac.Data
             {
                 if (TComparer != null)
                 {
-                    int tComp = TComparer.Compare(x.Key, y.Key);
+                    int tComp = TComparer(x.Key, y.Key);
                     if (tComp == 0) return 0;
                     else if (x.Value == y.Value) return tComp;
                     else if (!x.Value) return +1;
@@ -49,6 +49,7 @@ namespace Salvac.Data
             }
         }
 
+        public event EventHandler EnableStatesChanged;
 
         private List<KeyValuePair<T, bool>> _content;
         private int _enabledCount;
@@ -83,7 +84,7 @@ namespace Salvac.Data
         { get { return false; } }
 
 
-        public SortedEnablingSet(IEnumerable<KeyValuePair<T, bool>> content, IComparer<T> comparer)
+        public SortedEnablingSet(IEnumerable<KeyValuePair<T, bool>> content, Comparison<T> comparer)
         {
             if (content == null) throw new ArgumentNullException("context");
 
@@ -93,15 +94,15 @@ namespace Salvac.Data
             _content.Sort(_comparer);
         }
 
-        public SortedEnablingSet(IEnumerable<T> content, Func<T, bool> enabledSeletor, IComparer<T> comparer) :
+        public SortedEnablingSet(IEnumerable<T> content, Func<T, bool> enabledSeletor, Comparison<T> comparer) :
             this((content != null ? content.Select(c => new KeyValuePair<T, bool>(c, enabledSeletor(c))) : null), comparer)
         { }
 
-        public SortedEnablingSet(IEnumerable<T> content, IComparer<T> comparer) :
+        public SortedEnablingSet(IEnumerable<T> content, Comparison<T> comparer) :
             this(content, l => true, comparer)
         { }
 
-        public SortedEnablingSet(IComparer<T> comparer) :
+        public SortedEnablingSet(Comparison<T> comparer) :
             this(Enumerable.Empty<KeyValuePair<T, bool>>(), comparer)
         { }
 
@@ -123,22 +124,94 @@ namespace Salvac.Data
         { }
 
 
-        public void Add(T item, bool enabled)
+        public void AddRange(IEnumerable<T> items, Func<T, bool> enabledSelector)
         {
-            if (this.Contains(item))
-                return;
+            if (items == null) throw new ArgumentNullException("items");
 
-            _content.Add(new KeyValuePair<T, bool>(item, enabled));
+            IEnumerable<KeyValuePair<T, bool>> values = items.Where(t => !this.Contains(t)).Select(t => new KeyValuePair<T, bool>(t, enabledSelector(t)));
+
+            _content.AddRange(values);
             _content.Sort(_comparer);
 
-            if (enabled)
-                _enabledCount++;
+            _enabledCount += values.Sum(kvp => (kvp.Value ? 1 : 0));
+            if (EnableStatesChanged != null)
+                EnableStatesChanged(this, EventArgs.Empty);
+        }
+
+        public void AddRange(IEnumerable<T> items)
+        {
+            this.AddRange(items, t => true);
+        }
+
+        public void AddRange(params T[] items)
+        {
+            this.AddRange(items as IEnumerable<T>);
+        }
+
+        public void Add(T item, bool enabled)
+        {
+            this.AddRange(new T[] { item }, t => enabled);
         }
 
         public void Add(T item)
         {
-            this.Add(item, true);
+            this.AddRange(item);
         }
+
+
+        public void EnableAll(bool enabled, Func<T, bool> selector)
+        {
+            for (int i = 0; i < _content.Count; i++)
+            {
+                KeyValuePair<T, bool> kvp = _content[i];
+                if (kvp.Value != enabled && selector(kvp.Key))
+                {
+                    _content[i] = new KeyValuePair<T, bool>(kvp.Key, enabled);
+                    if (enabled) _enabledCount++;
+                    else _enabledCount--;
+                }
+            }
+
+            _content.Sort(_comparer);
+            if (EnableStatesChanged != null)
+                EnableStatesChanged(this, EventArgs.Empty);
+        }
+
+        public void EnableAll(IEnumerable<T> items, bool enabled)
+        {
+            IEnumerable<T> values = items.Where(t => {
+                int item = this.FindItem(t);
+                if (item < 0)
+                    return false;
+                return _content[item].Value != enabled;
+            });
+
+            foreach (T item in items)
+            {
+                int idx = this.FindItem(item);
+                if (idx < 0) continue;
+                if (_content[idx].Value == enabled) continue;
+
+                _content[idx] = new KeyValuePair<T,bool>(item, enabled);
+                if (enabled) _enabledCount++;
+                else _enabledCount--;
+            }
+
+            _content.Sort(_comparer);
+            if (EnableStatesChanged != null)
+                EnableStatesChanged(this, EventArgs.Empty);
+        }
+
+        public void EnableAll(bool enabled, params T[] items)
+        {
+            this.EnableAll(items as IEnumerable<T>, enabled);
+        }
+
+        public void EnableItem(T item, bool enabled)
+        {
+            this.EnableAll(enabled, item);
+        }
+
 
         public void Clear()
         {
@@ -162,21 +235,6 @@ namespace Salvac.Data
             }
         }
 
-        public void EnableItem(T item, bool enabled)
-        {
-            int idx = this.FindItem(item);
-            if (idx < 0) throw new ArgumentException("item is not in this SortedEnablingSet", "item");
-
-            bool wasEnabled = _content[idx].Value;
-            if (wasEnabled != enabled)
-            {
-                _content[idx] = new KeyValuePair<T, bool>(item, enabled);
-                _content.Sort(_comparer);
-
-                if (enabled) _enabledCount++;
-                else _enabledCount--;
-            }
-        }
         
         public bool IsEnabled(T item)
         {

@@ -13,30 +13,22 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-#if DEBUG
-
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
 
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd
 {
-
-    public static class DebugInfo
+    public partial class FsdConnectDialog : UserControl
     {
-        public static int DrawnSectorBackgrounds
-        { get; set; }
-
-        public static int DrawnSectorBoundaries
-        { get; set; }
-
-        public static bool DrawBoundingBoxes
-        { get; set; }
-
-        public static double LastFrameTime
-        { get; set; }
+        public FsdConnectDialog()
+        {
+            InitializeComponent();
+        }
     }
-
 }
-
-#endif

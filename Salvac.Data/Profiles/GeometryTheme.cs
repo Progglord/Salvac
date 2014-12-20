@@ -18,9 +18,9 @@ using System.Drawing;
 
 namespace Salvac.Data.Profiles
 {
-    public class LayerTheme : IDisposable
+    public class GeometryTheme : IDisposable
     {
-        public static readonly LayerTheme Default = new LayerTheme()
+        public static readonly GeometryTheme Default = new GeometryTheme()
         {
             EnableLineStippling = false,
             LineStipplePattern = 0xFFFF,
@@ -73,14 +73,14 @@ namespace Salvac.Data.Profiles
         #endregion
 
 
-        internal LayerTheme()
+        internal GeometryTheme()
         {
             // Initialize nothing, use this for parsing
         }
 
-        public LayerTheme Copy()
+        public GeometryTheme Copy()
         {
-            return new LayerTheme()
+            return new GeometryTheme()
             {
                 EnableLineStippling = this.EnableLineStippling,
                 LineStipplePattern = this.LineStipplePattern,

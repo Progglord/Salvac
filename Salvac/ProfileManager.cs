@@ -20,6 +20,7 @@ using Salvac.Data.Types;
 using Salvac.Data.Profiles;
 using Salvac.Data.World;
 using System.Drawing;
+using DotSpatial.Projections;
 
 namespace Salvac
 {
@@ -64,10 +65,11 @@ namespace Salvac
             SectorView view = WorldManager.Current.Model.CreateSectorView("SECTOR_VIEW", null, 0d);
                 //WorldManager.Current.Model.CreateSectorView("SECTOR_VIEW", new int[] { 5 }, 20 * Distance.MetersPerNauticalMile);
 
-            Profile profile = new Profile(view, 4839, 5d);
+            ProjectionInfo proj = ProjectionInfo.FromProj4String("+proj=lcc +lat_1=48.66666666666666 +lat_2=53.66666666666666 +lat_0=51 +lon_0=10.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+            Profile profile = new Profile(view, 4839, proj, 5d);
 
 
-            LayerTheme theme = LayerTheme.Default.Copy();
+            GeometryTheme theme = GeometryTheme.Default.Copy();
             theme.LineWidth = 0.8f;
             theme.LineColor = Color.FromArgb(40, 40, 40);
 
@@ -75,7 +77,7 @@ namespace Salvac
             layer1.AddFromNames(WorldManager.Current.Model, view.Name, "EDDW", "EDDV", "EDDT", "EDDH", "EDHL", "EDVE", "EDVK", "EDXW", "ETHB", "ETHC", "ETHS", "ETMN",
                 "EDDK", "EDDL", "EDDM", "EDDM HX", "EDDN", "EDDP", "EDDS", "EDLN", "EDLP", "EDLW", "EDNY", "ETNW", "EDLV");
 
-            theme = LayerTheme.Default.Copy();
+            theme = GeometryTheme.Default.Copy();
             theme.LineWidth = 1.0f;
             theme.LineColor = Color.FromArgb(60, 60, 60);
 
@@ -84,6 +86,22 @@ namespace Salvac
 
             profile.Layers.Add(layer1);
             profile.Layers.Add(layer2);
+
+            using (var cmd = view.Model.CreateCommand())
+            {
+                cmd.CommandText = "SELECT id, name FROM " + view.Name;
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        if (SpatiaLiteHelper.CheckRow(reader))
+                        {
+                            Sector sector = Sector.FromSQLiteReader(reader);
+                            profile.Sectors.Add(sector, layer1.Content.Contains(sector.Id) || layer2.Content.Contains(sector.Id));
+                        }
+                    }
+                }
+            }
 
             this.NewProfileLoaded(profile);
         }

@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using DotSpatial.Topology;
 using OpenTK;
 
-namespace Salvac.Interface.Rendering.Geometry
+namespace Salvac.Interface.Rendering
 {
     public sealed class PolygonTriangulator
     {

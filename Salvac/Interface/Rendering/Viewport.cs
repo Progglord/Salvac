@@ -23,6 +23,9 @@ namespace Salvac.Interface.Rendering
 {
     public sealed class Viewport
     {
+        public event EventHandler Resized;
+
+
         public int Width
         { get; private set; }
 
@@ -79,6 +82,9 @@ namespace Salvac.Interface.Rendering
             this.Width = width;
             this.Height = height;
             this.Update();
+
+            if (this.Resized != null)
+                this.Resized(this, EventArgs.Empty);
         }
 
         public void AdjustedMove(Vector2 translation, float zoom)
@@ -104,6 +110,16 @@ namespace Salvac.Interface.Rendering
             this.Zoom += zoom;
 
             this.Update();
+        }
+
+        public void ZoomToRectangle(RectangleF rectangle)
+        {
+            float zoomWidth = (float)this.Width / (1.1f * rectangle.Width);
+            float zoomHeight = (float)this.Height / (1.1f * rectangle.Height);
+            float zoom = Math.Min(zoomWidth, zoomHeight);
+            Vector2 pos = new Vector2((rectangle.Left + rectangle.Right) / 2f, (rectangle.Bottom + rectangle.Top) / 2f);
+
+            this.PlainMove(pos - this.Position, zoom - this.Zoom);
         }
 
 

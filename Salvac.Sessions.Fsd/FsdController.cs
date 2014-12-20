@@ -15,16 +15,33 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Drawing;
+using System.Linq;
+using System.Collections.Generic;
 
-namespace Salvac.Interface.Rendering.Geometry
+namespace Salvac.Sessions.Fsd
 {
-    public interface IGeometryRenderer : IDisposable
+    public sealed class FsdController : IController
     {
-        bool IsDisposed { get; }
-        RectangleF BoundingBox { get; }
+        public event EventHandler Updated;
 
-        void RenderBackground();
-        void RenderLines();
+        public event EventHandler Destroyed;
+
+        public ISession Session
+        { get; private set; }
+
+        public string Callsign
+        { get; private set; }
+
+        public IList<long> Sectors
+        { get; private set; }
+
+        
+        public FsdController(ISession session, string callsign, params long[] sectors)
+        {
+            this.Session = session;
+            this.Callsign = callsign;
+            this.Sectors = sectors.ToList();
+        }
+        
     }
 }

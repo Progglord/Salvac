@@ -39,7 +39,6 @@ namespace Salvac.Interface
 
         private bool _loaded;
         private RadarScreen _radarScreen;
-        private List<IMouseListener> _mouseListeners;
 
         public MainWindow()
         {
@@ -50,7 +49,15 @@ namespace Salvac.Interface
             CreateGLWindow();
 
             _loaded = false;
-            _mouseListeners = new List<IMouseListener>();
+
+            SessionManager.Current.SessionOpened += (s, e) =>
+                {
+                    toolStripButton1.Text = "Disconnect";
+                };
+            SessionManager.Current.SessionClosed += (s, e) =>
+            {
+                toolStripButton1.Text = "Connect";
+            };
         }
 
         private void CreateGLWindow()
@@ -67,6 +74,7 @@ namespace Salvac.Interface
             glWindow.MouseMove += this.glWindow_MouseMove;
             glWindow.MouseUp += this.glWindow_MouseUp;
             glWindow.MouseWheel += glWindow_MouseWheel;
+            glWindow.KeyUp += glWindow_KeyUp;
             glWindow.Resize += this.glWindow_Resize;
 
             this.Controls.Add(glWindow);
@@ -87,24 +95,23 @@ namespace Salvac.Interface
                 _loaded = false;
 
                 _radarScreen.Dispose();
-                _mouseListeners.Clear();
             }
 
             // Create new data
-            _radarScreen = new RadarScreen(this);
+            _radarScreen = new RadarScreen(glWindow);
             _radarScreen.Load();
 
             // Load menus
             mnuLayers.DropDownItems.Clear();
-            foreach (Layer layer in ProfileManager.Current.Profile.Layers.Content)
+            foreach (Layer layer in ProfileManager.Current.Profile.Layers)
             {
                 ToolStripMenuItem item = new ToolStripMenuItem();
                 item.Text = layer.Name;
                 item.CheckOnClick = true;
-                item.Checked = ProfileManager.Current.Profile.Layers.EnabledContent.Contains(layer);
+                item.Checked = ProfileManager.Current.Profile.IsLayerEnabled(layer);
                 item.CheckedChanged += (s, e) =>
                 {
-                    ProfileManager.Current.Profile.Layers.EnableItem(layer, item.Checked);
+                    ProfileManager.Current.Profile.Sectors.EnableAll(item.Checked, x => layer.Content.Contains(x.Id));
                     glWindow.Invalidate();
                 };
                 mnuLayers.DropDownItems.Add(item);
@@ -169,7 +176,7 @@ namespace Salvac.Interface
             glWindow.SwapBuffers();
 
 #if DEBUG
-            DebugInfo.LastFrameTime = watch.Elapsed.TotalSeconds;
+            DebugScreen.LastFrameTime = watch.Elapsed.TotalSeconds;
 #endif
         }
 
@@ -177,39 +184,15 @@ namespace Salvac.Interface
 
         #region Mouse Input
 
-        public void AddMouseListener(IMouseListener listener)
-        {
-            if (!_mouseListeners.Contains(listener))
-            {
-                _mouseListeners.Add(listener);
-                _mouseListeners.Sort((l1, l2) => l2.Priority.CompareTo(l1.Priority));
-            }
-        }
-
-        public void RemoveMouseListener(IMouseListener listener)
-        {
-            _mouseListeners.Remove(listener);
-        }
-
-        private IMouseListener GetMouseListener(Vector2 position)
-        {
-            IMouseListener listener = (from m in _mouseListeners
-                                       where m.IsMouseOverListener(position)
-                                       select m).FirstOrDefault();
-            return listener;
-        }
-
-
         private Vector2 _lastMousePosition = Vector2.Zero;
         private MouseButtons _dragButton = MouseButtons.None;
         private bool _dragged = false;
+
         private void glWindow_MouseMove(object sender, MouseEventArgs e)
         {
             if (!_loaded) return;
 
             Vector2 currentPos = new Vector2(e.X, e.Y);
-            IMouseListener listener = this.GetMouseListener(currentPos);
-            if (listener == null) return;
 
             if (_dragButton != MouseButtons.None && (e.Button & _dragButton) != 0)
             {
@@ -220,11 +203,11 @@ namespace Salvac.Interface
                 if (delta != Vector2.Zero)
                 {
                     _dragged = true;
-                    listener.MouseDrag(_dragButton, delta, 0);
+                    _radarScreen.MouseDrag(_dragButton, currentPos, delta, 0);
                 }
             }
             else
-                listener.MouseMove(currentPos, 0);
+                _radarScreen.MouseMove(currentPos, 0);
         }
 
         private void glWindow_MouseWheel(object sender, MouseEventArgs e)
@@ -232,13 +215,11 @@ namespace Salvac.Interface
             if (!_loaded) return;
 
             Vector2 currentPos = new Vector2(e.X, e.Y);
-            IMouseListener listener = this.GetMouseListener(currentPos);
-            if (listener == null) return;
 
             if (_dragButton != MouseButtons.None)
-                listener.MouseDrag(_dragButton, Vector2.Zero, e.Delta);
+                _radarScreen.MouseDrag(_dragButton, currentPos, Vector2.Zero, e.Delta);
             else
-                listener.MouseMove(currentPos, e.Delta);
+                _radarScreen.MouseMove(currentPos, e.Delta);
         }
 
         private void glWindow_MouseDown(object sender, MouseEventArgs e)
@@ -265,10 +246,7 @@ namespace Salvac.Interface
             if (_dragged) return;
 
             Vector2 currentPos = new Vector2(e.X, e.Y);
-            IMouseListener listener = this.GetMouseListener(currentPos);
-            if (listener == null) return;
-
-            listener.MouseClick(e.Button, currentPos);
+            _radarScreen.MouseClick(e.Button, currentPos);
         }
 
         private void glWindow_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -277,18 +255,30 @@ namespace Salvac.Interface
             if (_dragged) return;
 
             Vector2 currentPos = new Vector2(e.X, e.Y);
-            IMouseListener listener = this.GetMouseListener(currentPos);
-            if (listener == null) return;
+            _radarScreen.MouseDoubleClick(e.Button, currentPos);
+        }
 
-            listener.MouseDoubleClick(e.Button, currentPos);
+        private void glWindow_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (!_loaded) return;
+
+            e.Handled = _radarScreen.KeyPress(e.KeyData);
         }
 
         #endregion
 
         private void mnuBoundingBoxes_CheckStateChanged(object sender, EventArgs e)
         {
-            DebugInfo.DrawBoundingBoxes = mnuBoundingBoxes.Checked;
+            DebugScreen.DrawBoundingBoxes = mnuBoundingBoxes.Checked;
             glWindow.Invalidate();
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            if (!SessionManager.Current.IsLoaded)
+                (new ConnectDialog()).ShowDialog();
+            else
+                SessionManager.Current.CloseSession();
         }
 
     }

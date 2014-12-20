@@ -20,48 +20,41 @@ using System.Drawing.Text;
 using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
 using OpenTK;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Graphics;
+using OpenTK.Graphics.OpenGL;
 
 namespace Salvac.Interface.Rendering
 {
     public class TextRenderer : IDisposable
     {
-        private MainWindow _window;
+        private Viewport _viewport;
         private Bitmap _bitmap;
         private Graphics _graphics;
         private int _glTexture;
 
-        private bool _loaded;
-        private bool _disposed;
+        public bool IsDisposed
+        { get; private set; }
 
-        public TextRenderer(MainWindow window)
+        public bool IsLoaded
+        { get; private set; }
+
+
+        public TextRenderer(Viewport viewport)
         {
-            if (window == null) throw new ArgumentNullException("window");
-            _window = window;
+            if (viewport == null) throw new ArgumentNullException("viewport");
+            _viewport = viewport;
 
-            _loaded = false;
-            _disposed = false;
-
-            window.glWindow.Resize += (s, e) =>
-                {
-                    if (!_loaded) return;
-
-                    _graphics.Dispose();
-                    _bitmap.Dispose();
-
-                    _bitmap = new Bitmap(window.glWindow.Width, window.glWindow.Height);
-                    _graphics = Graphics.FromImage(_bitmap);
-                };
+            this.IsDisposed = false;
+            this.IsLoaded = false;
         }
 
 
         public void Load()
         {
-            if (_disposed) throw new ObjectDisposedException("TextRenderer");
-            if (_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("TextRenderer");
+            if (this.IsLoaded) return;
 
-            _bitmap = new Bitmap(_window.glWindow.Width, _window.glWindow.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            _bitmap = new Bitmap(_viewport.Width, _viewport.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             _graphics = Graphics.FromImage(_bitmap);
             _graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
             _graphics.SmoothingMode = SmoothingMode.HighQuality;
@@ -72,21 +65,32 @@ namespace Salvac.Interface.Rendering
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, _bitmap.Width, _bitmap.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
 
-            _loaded = true;
+            _viewport.Resized += (s, e) =>
+            {
+                if (!this.IsLoaded) return;
+
+                _graphics.Dispose();
+                _bitmap.Dispose();
+
+                _bitmap = new Bitmap(_viewport.Width, _viewport.Height);
+                _graphics = Graphics.FromImage(_bitmap);
+            };
+
+            this.IsLoaded = true;
         }
 
         public void Begin()
         {
-            if (_disposed) throw new ObjectDisposedException("TextRenderer");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("TextRenderer");
+            if (!this.IsLoaded) return;
 
             _graphics.Clear(Color.Transparent);
         }
 
         public void End()
         {
-            if (_disposed) throw new ObjectDisposedException("TextRenderer");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("TextRenderer");
+            if (!this.IsLoaded) return;
 
             // Update texture
             BitmapData data = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -116,31 +120,36 @@ namespace Salvac.Interface.Rendering
 
         public void DrawString(string text, Font font, Brush brush, Vector2 position)
         {
-            if (_disposed) throw new ObjectDisposedException("TextRenderer");
-            if (!_loaded) return;
+            if (this.IsDisposed) throw new ObjectDisposedException("TextRenderer");
+            if (!this.IsLoaded) return;
 
-            _graphics.DrawString(text, font, brush, new PointF(position.X, _bitmap.Height - position.Y));
+            // Transform position into view space
+            Matrix4 matrix;
+            GL.GetFloat(GetPName.ModelviewMatrix, out matrix);
+
+            Vector3 pos = new Vector3(position.X, position.Y, 0f);
+            Vector3.Transform(ref pos, ref matrix, out pos);
+
+            // Draw the string
+            _graphics.DrawString(text, font, brush, new PointF(pos.X, _bitmap.Height - pos.Y));
         }
 
 
         private void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (!this.IsDisposed)
             {
                 if (disposing)
                 {
                     if (_graphics != null)
                         _graphics.Dispose();
-                    _graphics = null;
-
                     if (_bitmap != null)
                         _bitmap.Dispose();
-                    _bitmap = null;
                     
                     if (GraphicsContext.CurrentContext != null)
                         GL.DeleteTexture(_glTexture);
                 }
-                _disposed = true;
+                this.IsDisposed = true;
             }
         }
 

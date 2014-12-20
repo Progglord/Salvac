@@ -22,11 +22,15 @@ using DotSpatial.Topology;
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+using Salvac.Data.Profiles;
 
-namespace Salvac.Interface.Rendering.Geometry
+namespace Salvac.Interface.Rendering
 {
-    public sealed class PolygonRenderer : IGeometryRenderer
+    public sealed class PolygonRenderer
     {
+        private Polygon _polygon;
+        private GeometryTheme _theme;
+
         private int _vertexBuffer;
         private int _vertexCount;
         private int _polygonIndexBuffer;
@@ -37,35 +41,57 @@ namespace Salvac.Interface.Rendering.Geometry
         public bool IsDisposed
         { get; private set; }
 
+        public bool IsLoaded
+        { get; private set; }
+
+        public bool IsEnabled
+        { get; set; }
+
         public RectangleF BoundingBox
         { get; private set; }
 
 
-        public PolygonRenderer(Polygon polygon, RectangleF boundingBox)
+        public PolygonRenderer(Polygon polygon, GeometryTheme theme, RectangleF boundingBox)
         {
-            if (polygon == null)
-                throw new ArgumentNullException("polygon");
+            if (polygon == null) throw new ArgumentNullException("polygon");
+            if (theme == null) throw new ArgumentNullException("theme");
             if (boundingBox.Width < 0 || boundingBox.Height < 0)
                 throw new ArgumentException("boundingBox has negative width or height.", "boundingBox");
 
+            this.IsDisposed = false;
+            this.IsLoaded = false;
+            this.IsEnabled = true;
             this.BoundingBox = boundingBox;
-            this.LoadPolygon(polygon);
+
+            _polygon = polygon;
+            _theme = theme;
         }
 
-        public PolygonRenderer(Polygon polygon)
+        public PolygonRenderer(Polygon polygon, GeometryTheme theme)
         {
             if (polygon == null) throw new ArgumentNullException("polygon");
+            if (theme == null) throw new ArgumentNullException("theme");
+
+            this.IsDisposed = false;
+            this.IsLoaded = false;
+            this.IsEnabled = true;
 
             IEnvelope envelope = polygon.Envelope;
             this.BoundingBox = new RectangleF((float)envelope.X, (float)envelope.Y - (float)envelope.Height, (float)envelope.Width, (float)envelope.Height);
-            this.LoadPolygon(polygon);
+
+            _polygon = polygon;
+            _theme = theme;
         }
 
-        private void LoadPolygon(Polygon polygon)
+
+        public void Load()
         {
+            if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
+            if (this.IsLoaded) return;
+
             IList<Vector2> vertices;
             IList<int> lineIndices;
-            IList<int> indices = PolygonTriangulator.Triangulate(polygon, out vertices, out lineIndices);
+            IList<int> indices = PolygonTriangulator.Triangulate(_polygon, out vertices, out lineIndices);
             _vertexCount = vertices.Count;
 
             // Create vertex buffer
@@ -86,13 +112,22 @@ namespace Salvac.Interface.Rendering.Geometry
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _lineIndexBuffer);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(_lineIndexCount * sizeof(int)), lineIndices.ToArray(), BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+
+            // We don't need the plain polygon anymore
+            _polygon = null;
+
+            this.IsLoaded = true;
         }
 
 
-        public void RenderBackground()
+        public void RenderBackground(Viewport viewport)
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
+            if (!this.IsLoaded) return;
+            if (!this.IsEnabled) return;
+            if (!viewport.IsVisible(BoundingBox) || viewport.IsCluttered(BoundingBox)) return;
 
+            GL.Color4(_theme.FillColor);
             GL.EnableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBuffer);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _polygonIndexBuffer);
@@ -103,11 +138,27 @@ namespace Salvac.Interface.Rendering.Geometry
             GL.DisableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+            GL.Color4(Color.White);
+
+#if DEBUG
+            DebugScreen.DrawnEnvironment++;
+#endif
         }
 
-        public void RenderLines()
+        public void RenderBoundaries(Viewport viewport)
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
+            if (!this.IsLoaded) return;
+            if (!this.IsEnabled) return;
+            if (!viewport.IsVisible(BoundingBox) || viewport.IsCluttered(BoundingBox)) return;
+
+            GL.Color4(_theme.LineColor);
+            GL.LineWidth(_theme.LineWidth);
+            if (_theme.EnableLineStippling)
+            {
+                GL.Enable(EnableCap.LineStipple);
+                GL.LineStipple(_theme.LineStipplingFactor, _theme.LineStipplePattern);
+            }
 
             GL.EnableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBuffer);
@@ -119,6 +170,10 @@ namespace Salvac.Interface.Rendering.Geometry
             GL.DisableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+
+            GL.Disable(EnableCap.LineStipple);
+            GL.LineWidth(1f);
+            GL.Color4(Color.White);
         }
 
 
@@ -144,6 +199,7 @@ namespace Salvac.Interface.Rendering.Geometry
                     }
                 }
                 this.IsDisposed = true;
+                this.IsLoaded = false;
             }
         }
 

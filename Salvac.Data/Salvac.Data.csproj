@@ -10,33 +10,38 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Salvac.Data</RootNamespace>
     <AssemblyName>Salvac.Data</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>262e0a77</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>f3f07f73</NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <PlatformTarget>x64</PlatformTarget>
     <OutputPath>..\builds\Debug\x64\</OutputPath>
     <DefineConstants>DEBUG</DefineConstants>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <PlatformTarget>x64</PlatformTarget>
     <OutputPath>..\builds\Release\x64\</OutputPath>
     <Optimize>true</Optimize>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <PlatformTarget>x86</PlatformTarget>
     <OutputPath>..\builds\Debug\x86\</OutputPath>
     <DefineConstants>DEBUG</DefineConstants>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <PlatformTarget>x86</PlatformTarget>
     <OutputPath>..\builds\Release\x86\</OutputPath>
     <Optimize>true</Optimize>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Antlr4.Runtime.net40">
-      <HintPath>..\packages\Antlr4.Runtime.4.3.0\lib\net40-client\Antlr4.Runtime.net40.dll</HintPath>
+    <Reference Include="Antlr4.Runtime.net45">
+      <HintPath>..\packages\Antlr4.Runtime.4.3.0\lib\net45\Antlr4.Runtime.net45.dll</HintPath>
     </Reference>
     <Reference Include="DotSpatial.Projections">
       <HintPath>..\packages\DotSpatial.Projections.1.7\lib\net40-Client\DotSpatial.Projections.dll</HintPath>
@@ -54,11 +59,11 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data.SQLite, Version=1.0.94.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=x86" Condition="'$(Platform)' == 'x86'">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\extern\Sqlite\sqlite-netFx40-binary-Win32-2010-1.0.94.0\System.Data.SQLite.dll</HintPath>
+      <HintPath>..\extern\Sqlite\sqlite-netFx45-binary-Win32-2012-1.0.94.0\System.Data.SQLite.dll</HintPath>
     </Reference>
     <Reference Include="System.Data.SQLite, Version=1.0.94.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=AMD64" Condition="'$(Platform)' == 'x64'">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\extern\Sqlite\sqlite-netFx40-binary-x64-2010-1.0.94.0\System.Data.SQLite.dll</HintPath>
+      <HintPath>..\extern\Sqlite\sqlite-netFx45-binary-x64-2012-1.0.94.0\System.Data.SQLite.dll</HintPath>
     </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.Xml.Linq" />
@@ -68,13 +73,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Profiles\Sector.cs" />
     <Compile Include="SortedEnablingSet.cs" />
     <Compile Include="InvalidDatabaseException.cs" />
     <Compile Include="Profiles\Layer.cs" />
-    <Compile Include="Profiles\LayerTheme.cs" />
+    <Compile Include="Profiles\GeometryTheme.cs" />
     <Compile Include="Profiles\Profile.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Types\Frequency.cs" />
     <Compile Include="Types\Pressure.cs" />
     <Compile Include="Types\Speed.cs" />
     <Compile Include="Utils.cs" />
