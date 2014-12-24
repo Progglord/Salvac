@@ -22,6 +22,7 @@ using System.Drawing.Drawing2D;
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
@@ -49,16 +50,16 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void Load()
+        public async Task Load()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("TextRenderer");
             if (this.IsLoaded) return;
 
-            _bitmap = new Bitmap(_viewport.Width, _viewport.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            _graphics = Graphics.FromImage(_bitmap);
-            _graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
-            _graphics.SmoothingMode = SmoothingMode.HighQuality;
-            
+            await Task.Run(() =>
+            {
+                CreateBitmap();
+            });
+
             _glTexture = GL.GenTexture();
             GL.BindTexture(TextureTarget.Texture2D, _glTexture);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
@@ -72,11 +73,22 @@ namespace Salvac.Interface.Rendering
                 _graphics.Dispose();
                 _bitmap.Dispose();
 
-                _bitmap = new Bitmap(_viewport.Width, _viewport.Height);
-                _graphics = Graphics.FromImage(_bitmap);
+                CreateBitmap();
             };
 
             this.IsLoaded = true;
+        }
+
+        private void CreateBitmap()
+        {
+            _bitmap = new Bitmap(_viewport.Width, _viewport.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            _graphics = Graphics.FromImage(_bitmap);
+            _graphics.CompositingMode = CompositingMode.SourceOver;
+            _graphics.CompositingQuality = CompositingQuality.HighSpeed;
+            _graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+            _graphics.SmoothingMode = SmoothingMode.None;
+            _graphics.InterpolationMode = InterpolationMode.High;
+            _graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         }
 
         public void Begin()

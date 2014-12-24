@@ -15,17 +15,20 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Salvac.Sessions
 {
     public interface ISession : IDisposable
     {
+        event EventHandler<SessionClosedEventArgs> Closed;
         event EventHandler<EntityEventArgs> EntityAdded;
+        event EventHandler<EntityEventArgs> EntityDestroyed;
 
-        IController ThisController { get; }
+        IController Controller { get; }
         IEnumerable<IEntity> Entities { get; }
 
         void Close();

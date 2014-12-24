@@ -16,36 +16,56 @@
 
 using DotSpatial.Topology;
 using Salvac.Data.Types;
+using Salvac.Sessions.Fsd.Messages;
 using System;
+using System.Diagnostics;
 
 namespace Salvac.Sessions.Fsd
 {
-    public sealed class FsdPilot : IPilot
+    public sealed class FsdPilot : FsdEntity, IPilot
     {
-        public event EventHandler Updated;
+        private int INACTIVE_TIME = 10000;
+        private int TIMEOUT_TIME = 60000;
 
-        public event EventHandler Destroyed;
+        private Stopwatch _timer;
 
-
-        public ISession Session
-        { get; private set; }
 
         public string Callsign
-        { get; private set; }
+        { get { return this.FsdName; } }
+
 
         public Coordinate Position
-        { get; private set; }
+        { get; set; }
 
         public Distance Altitude
-        { get; private set; }
+        { get; set; }
 
         
-        public FsdPilot(ISession session, string callsign, Coordinate position, Distance altitude)
+        public FsdPilot(string fsdName) :
+            base(fsdName)
         {
-            this.Session = session;
-            this.Callsign = callsign;
-            this.Position = position;
-            this.Altitude = altitude;
+            this.Position = Coordinate.Empty;
+            this.Altitude = Distance.Zero;
+        }
+
+        public void HandlePosition(PilotPositionMessage message)
+        {
+            bool update = false;
+            if (message.Position != this.Position)
+            {
+                update = true;
+                this.Position = message.Position;
+            }
+
+            if (message.TrueAltitude != this.Altitude)
+            {
+                update = true;
+                this.Altitude = message.TrueAltitude;
+            }
+
+            if (update)
+                this.OnUpdated();
+            this.WakeUp();
         }
         
     }

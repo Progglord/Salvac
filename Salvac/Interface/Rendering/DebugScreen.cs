@@ -22,6 +22,7 @@ using System.Diagnostics;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
@@ -79,12 +80,13 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void Load()
+        public async Task LoadAsync()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("DebugScreen");
             if (this.IsLoaded) return;
 
-            _debugFont = new Font("Terminal", 9, FontStyle.Regular);
+            await Task.Run(() => { _debugFont = new Font("Terminal", 9, FontStyle.Regular); });
+
             this.IsLoaded = true;
         }
 

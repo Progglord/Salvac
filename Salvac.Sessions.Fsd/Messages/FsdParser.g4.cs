@@ -13,25 +13,9 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-using System;
-using System.Threading.Tasks;
-
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IRenderable : IDisposable
+    partial class FsdParser
     {
-        event EventHandler Updated;
-
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
-
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
     }
 }

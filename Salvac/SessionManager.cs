@@ -45,7 +45,7 @@ namespace Salvac
         #endregion
 
         public event EventHandler SessionOpened;
-        public event EventHandler SessionClosed;
+        public event EventHandler<SessionClosedEventArgs> SessionClosed;
 
         public bool IsLoaded
         { get; private set; }
@@ -64,10 +64,17 @@ namespace Salvac
         public void LoadSession(ISession session)
         {
             if (session == null) throw new ArgumentNullException("session");
-
-            this.CloseSession();
+            if (this.IsLoaded) throw new InvalidOperationException("There is already a loaded session.");
 
             this.Session = session;
+            this.Session.Closed += (s, e) =>
+            {
+                this.Session = null;
+                this.IsLoaded = false;
+
+                if (this.SessionClosed != null)
+                    this.SessionClosed(this, e);
+            };
             this.IsLoaded = true;
 
             if (SessionOpened != null)
@@ -77,34 +84,36 @@ namespace Salvac
         public void CloseSession()
         {
             if (!this.IsLoaded) return;
-
-            this.Session.Close();
-            this.Session.Dispose();
-            this.Session = null;
-            this.IsLoaded = false;
-
-            if (this.SessionClosed != null)
-                this.SessionClosed(this, EventArgs.Empty);
+            this.Session.Close(); // Come back to ISession.Closed event
         }
 
-        public IList<ISessionProvider> GetProviders()
+        public async Task<IList<ISessionProvider>> GetProvidersAsync()
         {
-            List<ISessionProvider> providers = new List<ISessionProvider>();
+            var taskList = new List<Task<IEnumerable<ISessionProvider>>>();
             foreach (string file in Directory.GetFiles(PLUGINDIR, "*.dll"))
             {
-                try
+                taskList.Add(Task.Factory.StartNew<IEnumerable<ISessionProvider>>((s) =>
                 {
                     Assembly assembly = Assembly.LoadFile(Path.GetFullPath(file));
                     var types = (from t in assembly.GetTypes()
                                  where typeof(ISessionProvider).IsAssignableFrom(t) && t.IsClass && !t.IsAbstract & t.IsVisible && t.GetConstructor(Type.EmptyTypes) != null
                                  select Activator.CreateInstance(t) as ISessionProvider);
-                    providers.AddRange(types);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine("Could not load plugin assembly '{0}': {1}", file, ex.Message);
-                }
+                    return types;
+                }, file));
             }
+
+            await Task.WhenAll(taskList);
+
+            List<ISessionProvider> providers = new List<ISessionProvider>();
+            foreach (var task in taskList)
+            {
+                if (task.IsFaulted)
+                    Debug.WriteLine("Could not load plugin assembly '{0}': {1}", task.AsyncState, task.Exception.Message);
+                else
+                    providers.AddRange(task.Result);
+            }
+
+            
             return providers;
         }
     }

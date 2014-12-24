@@ -15,9 +15,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using Salvac.Sessions;
+using System.Net;
+using System.Net.Sockets;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using Salvac.Sessions;
 
 namespace Salvac.Sessions.Fsd
 {
@@ -38,10 +40,19 @@ namespace Salvac.Sessions.Fsd
         }
 
 
+        private byte[] _readBuffer;
         public async Task<ISession> ConnectAsync()
         {
-            //await Task.Delay(7000);
-            return new FsdSession();
+            if (string.IsNullOrEmpty(_connectDialog.txtHost.Text))
+                throw new InvalidOperationException("Invalid host.");
+            if (string.IsNullOrEmpty(_connectDialog.txtCallsign.Text))
+                throw new InvalidOperationException("Invalid callsign.");
+
+            Client client = new Client();
+            await client.ConnectAsync(_connectDialog.txtHost.Text, (int)_connectDialog.txtPort.Value);
+
+            IController controller = new FsdController(_connectDialog.txtCallsign.Text, _connectDialog.txtCallsign.Text, 53, 54, 55);
+            return new FsdSession(client, controller);
         }
     }
 }

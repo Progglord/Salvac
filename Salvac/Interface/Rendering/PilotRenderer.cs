@@ -20,6 +20,7 @@ using Salvac.Sessions;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using DotSpatial.Projections;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
@@ -27,8 +28,10 @@ namespace Salvac.Interface.Rendering
     {
         public event EventHandler Updated;
 
-        private Vector2 _position;
         private TextRenderer _textRenderer;
+        private object _locker = new object();
+
+        private Vector2 _position;
         private Font _labelFont;
 
         public bool IsDisposed
@@ -61,29 +64,35 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void Load()
+        public async Task LoadAsync()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PilotRenderer");
             if (this.IsLoaded) return;
 
-            _labelFont = new Font("Microsoft Sans Serif", 10);
+            await Task.Run(() =>
+            {
+                _labelFont = new Font("Microsoft Sans Serif", 10);
 
-            UpdatePilot();
-            this.Pilot.Updated += (s, e) => 
-            { 
-                UpdatePilot();
-                if (this.Updated != null) this.Updated(this, EventArgs.Empty);
-            };
-
-            this.IsLoaded = true;
+                this.IsLoaded = true;
+                Pilot_Update(null, EventArgs.Empty);
+                this.Pilot.Updated += Pilot_Update;
+            });
         }
 
-        private void UpdatePilot()
+
+        private void Pilot_Update(object sender, EventArgs e)
         {
+            if (this.IsDisposed || !this.IsLoaded) return;
+
             double[] xy = new double[] { this.Pilot.Position.X, this.Pilot.Position.Y };
             double[] z = new double[] { 0d };
             Reproject.ReprojectPoints(xy, z, KnownCoordinateSystems.Geographic.World.WGS1984, ProfileManager.Current.Profile.Projection, 0, 1);
-            _position = new Vector2((float)xy[0], (float)xy[1]);
+
+            lock (_locker)
+                _position = new Vector2((float)xy[0], (float)xy[1]);
+
+            if (this.Updated != null)
+                this.Updated(this, EventArgs.Empty);
         }
 
         public void Render(Viewport viewport)
@@ -103,7 +112,9 @@ namespace Salvac.Interface.Rendering
             GL.Vertex2(Vector2.Zero);
             GL.End();
 
-            _textRenderer.DrawString(this.Pilot.Callsign, _labelFont, Brushes.White, new Vector2(10f, 10f));
+            Brush brush = this.Pilot.IsInactive ? Brushes.DarkRed : Brushes.White;
+
+            _textRenderer.DrawString(this.Pilot.Callsign, _labelFont, brush, new Vector2(10f, 10f));
 
             GL.PopMatrix();
 

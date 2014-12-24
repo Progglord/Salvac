@@ -13,8 +13,9 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 using System;
-using System.Data.SQLite;
+using System.Data.Common;
 
 namespace Salvac.Data.World
 {
@@ -23,7 +24,7 @@ namespace Salvac.Data.World
         public static readonly string ExtensionPath = "mod_spatialite.dll";
 
 
-        public static bool CheckRow(SQLiteDataReader reader)
+        public static bool CheckRow(DbDataReader reader)
         {
             for (int i = 0; i < reader.FieldCount; i++)
             {

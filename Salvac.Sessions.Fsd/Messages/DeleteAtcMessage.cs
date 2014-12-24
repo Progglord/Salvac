@@ -15,23 +15,22 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IRenderable : IDisposable
+    public sealed class DeleteAtcMessage : Message
     {
-        event EventHandler Updated;
+        public const string TYPE = "#DA";
 
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
+        public DeleteAtcMessage(string source) :
+            base(TYPE, source, null)
+        { }
 
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
+        protected override IEnumerable<string> GetTokens()
+        {
+            yield return this.Source;
+            yield return "0"; // return dummy for unkown integer field.
+        }
     }
 }

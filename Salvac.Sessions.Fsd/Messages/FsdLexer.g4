@@ -1,4 +1,4 @@
-﻿// Salvac
+// Salvac
 // Copyright (C) 2014 Oliver Schmidt
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,24 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-using System;
-using System.Threading.Tasks;
+lexer grammar FsdLexer;
 
-namespace Salvac.Interface.Rendering
-{
-    public interface IRenderable : IDisposable
-    {
-        event EventHandler Updated;
+// FSD message types 
 
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
+WEATHERDATA		: '&D'	-> pushMode(Data) ;
+PILOTPOSITION	: '@'	-> pushMode(Data) ;
+DELETEPILOT		: '#DP'	-> pushMode(Data) ;
+DELETEATC		: '#DA' -> pushMode(Data) ;
 
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
-    }
-}
+// Data types
+
+mode Data;
+
+SEP			: ':' ;
+END			: '\r'? '\n'	-> popMode;
+SQUAWK		: [0-7][0-7]?[0-7]?[0-7]? ;
+INT			: ('-'|'+')? [0-9]+ ('l'|'L')? ;
+FLOAT		: ('-'|'+')? [0-9]+ '.' [0-9]+ 
+			| ('-'|'+')? '.' [0-9]+
+			;
+FSDNAME		: [a-zA-z] [a-zA-Z0-9_]* ;
+STRING		: ~[:\r\n]+
+			;

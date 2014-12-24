@@ -47,10 +47,10 @@ namespace Salvac.Interface
             pnlContent.Controls.Add(lbl);
         }
 
-        private void ConnectDialog_Load(object sender, EventArgs e)
+        private async void ConnectDialog_Load(object sender, EventArgs e)
         {
             // Load providers
-            _providers = SessionManager.Current.GetProviders();
+            _providers = await SessionManager.Current.GetProvidersAsync();
 
             if (_providers.Count > 0)
             {

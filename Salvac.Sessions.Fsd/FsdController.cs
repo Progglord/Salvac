@@ -20,28 +20,20 @@ using System.Collections.Generic;
 
 namespace Salvac.Sessions.Fsd
 {
-    public sealed class FsdController : IController
+    public sealed class FsdController : FsdEntity, IController
     {
-        public event EventHandler Updated;
-
-        public event EventHandler Destroyed;
-
-        public ISession Session
+        public IList<long> Sectors
         { get; private set; }
 
         public string Callsign
         { get; private set; }
-
-        public IList<long> Sectors
-        { get; private set; }
-
         
-        public FsdController(ISession session, string callsign, params long[] sectors)
+
+        public FsdController(string fsdName, string callsign, params long[] sectors) :
+            base(fsdName)
         {
-            this.Session = session;
-            this.Callsign = callsign;
             this.Sectors = sectors.ToList();
+            this.Callsign = callsign;
         }
-        
     }
 }

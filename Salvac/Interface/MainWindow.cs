@@ -57,6 +57,7 @@ namespace Salvac.Interface
             SessionManager.Current.SessionClosed += (s, e) =>
             {
                 toolStripButton1.Text = "Connect";
+                MessageBox.Show("Disconnected: " + e.Reason.ToString());
             };
         }
 
@@ -65,7 +66,8 @@ namespace Salvac.Interface
             glWindow = new GLControl(new GraphicsMode(new ColorFormat(8), 0, 0, 8));
             glWindow.Dock = DockStyle.Fill;
             glWindow.Name = "glWindow";
-            this.glWindow.VSync = false;
+            glWindow.VSync = true;
+
             glWindow.Load += this.glWindow_Load;
             glWindow.Paint += this.glWindow_Paint;
             glWindow.MouseClick += this.glWindow_MouseClick;
@@ -82,7 +84,7 @@ namespace Salvac.Interface
 
         #region Radar Screen
 
-        private void LoadProfile()
+        private async void LoadProfile()
         {
             if (!ProfileManager.Current.IsLoaded)
                 throw new NoProfileException();
@@ -99,7 +101,7 @@ namespace Salvac.Interface
 
             // Create new data
             _radarScreen = new RadarScreen(glWindow);
-            _radarScreen.Load();
+            await _radarScreen.LoadAsync();
 
             // Load menus
             mnuLayers.DropDownItems.Clear();
@@ -167,13 +169,19 @@ namespace Salvac.Interface
 #if DEBUG
             Stopwatch watch = Stopwatch.StartNew();
 #endif
+            try
+            {
+                GL.Clear(ClearBufferMask.ColorBufferBit);
 
-            GL.Clear(ClearBufferMask.ColorBufferBit);
+                if (_radarScreen != null)
+                    _radarScreen.Render();
 
-            if (_radarScreen != null)
-                _radarScreen.Render();
-
-            glWindow.SwapBuffers();
+                glWindow.SwapBuffers();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Rendering Error: " + ex.ToString());
+            }
 
 #if DEBUG
             DebugScreen.LastFrameTime = watch.Elapsed.TotalSeconds;
@@ -278,6 +286,17 @@ namespace Salvac.Interface
             if (!SessionManager.Current.IsLoaded)
                 (new ConnectDialog()).ShowDialog();
             else
+                SessionManager.Current.CloseSession();
+        }
+
+
+        private void MainWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _loaded = false;
+            glWindow.Dispose();
+            _radarScreen.Dispose();
+
+            if (SessionManager.Current.IsLoaded)
                 SessionManager.Current.CloseSession();
         }
 

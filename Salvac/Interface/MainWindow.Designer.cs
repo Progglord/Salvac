@@ -120,6 +120,7 @@ namespace Salvac.Interface
             this.Controls.Add(this.menuBar);
             this.Name = "MainWindow";
             this.Text = "Salvac";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
             this.menuBar.ResumeLayout(false);
             this.menuBar.PerformLayout();
             this.ResumeLayout(false);

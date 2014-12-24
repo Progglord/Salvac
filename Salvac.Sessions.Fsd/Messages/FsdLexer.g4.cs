@@ -15,23 +15,22 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Threading.Tasks;
+using Antlr4.Runtime;
 
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IRenderable : IDisposable
+    partial class FsdLexer
     {
-        event EventHandler Updated;
+        public override void Recover(LexerNoViableAltException e)
+        {
+            string message = string.Format("Unrecognized token at '{0}'.", (char)e.InputStream.La(1));
+            throw new InvalidMessageException(message, e);
+        }
 
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
-
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
+        public override void Recover(RecognitionException e)
+        {
+            string message = string.Format("Unrecognized token at '{0}'.", (char)e.InputStream.La(1));
+            throw new InvalidMessageException(message, e);
+        }
     }
 }

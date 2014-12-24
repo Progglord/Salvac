@@ -15,23 +15,18 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Threading.Tasks;
 
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IRenderable : IDisposable
+    [Serializable]
+    public class InvalidMessageException : Exception
     {
-        event EventHandler Updated;
-
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
-
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
+        public InvalidMessageException() { }
+        public InvalidMessageException(string message) : base(message) { }
+        public InvalidMessageException(string message, Exception inner) : base(message, inner) { }
+        protected InvalidMessageException(
+          System.Runtime.Serialization.SerializationInfo info,
+          System.Runtime.Serialization.StreamingContext context)
+            : base(info, context) { }
     }
 }

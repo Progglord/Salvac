@@ -15,23 +15,25 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Threading.Tasks;
 
-namespace Salvac.Interface.Rendering
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IRenderable : IDisposable
+    public enum PilotRating
     {
-        event EventHandler Updated;
+        //Unknown = -1,  // We won't use them. So just throw an error if they occur.
+        //Observer = 1,
+        FS1 = 2,
+        FS2 = 3,
+        FS3 = 4,
+        PP = 5,
+        SPP = 6,
+        CP = 7,
+        ATP = 8,
+        SFI = 9,
+        CFI = 10,
+        ShowAdministrator = 11,
 
-        bool IsDisposed { get; }
-        bool IsLoaded { get; }
-        bool IsEnabled { get; set; }
-        int RenderPriority { get; }
-
-        /// <summary>
-        /// This method is always being called from the rendering thread.
-        /// </summary>
-        Task LoadAsync();
-        void Render(Viewport viewport);
+        First = FS1,
+        Last = ShowAdministrator
     }
 }

@@ -42,6 +42,9 @@ namespace Salvac
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainWindow());
 
+            if (SessionManager.Current.IsLoaded)
+                SessionManager.Current.CloseSession();
+
             ProfileManager.Current.Dispose();
             WorldManager.Current.Dispose();
         }

@@ -20,11 +20,35 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using DotSpatial.Topology;
 using OpenTK;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
     public sealed class PolygonTriangulator
     {
+        public sealed class TriangulationResult
+        {
+            public Vector2[] Vertices
+            { get; private set; }
+
+            public int[] FillIndices
+            { get; private set; }
+
+            public int[] LineIndices
+            { get; private set; }
+
+            public TriangulationResult(Vector2[] vertices, int[] fillIndices, int[] lineIndices)
+            {
+                if (vertices == null) throw new ArgumentNullException("vertices");
+                if (fillIndices == null) throw new ArgumentNullException("fillIndices");
+                if (lineIndices == null) throw new ArgumentNullException("lineIndices");
+
+                this.Vertices = vertices;
+                this.FillIndices = fillIndices;
+                this.LineIndices = lineIndices;
+            }
+        }
+
         private sealed class Vertex
         {
             public int Index;
@@ -117,24 +141,30 @@ namespace Salvac.Interface.Rendering
 
         #endregion
 
-        public static IList<int> Triangulate(Polygon polygon, out IList<Vector2> coordinates, out IList<int> outlineIndices)
+        public static TriangulationResult Triangulate(Polygon polygon)
         {
             // Load coordinates and put them into counter-clockwise order
-            coordinates = polygon.Shell.Coordinates.Select(c => new Vector2((float)c.X, (float)c.Y)).ToList();
-            coordinates.RemoveAt(0);
-            if (!IsCounterClockwise(coordinates.ToArray()))
-                coordinates = coordinates.Reverse().ToList();
+            List<Vector2> vertices = new List<Vector2>(polygon.Shell.Coordinates.Select(c => new Vector2((float)c.X, (float)c.Y)));
+            vertices.RemoveAt(0);
+            if (!IsCounterClockwise(vertices.ToArray()))
+                vertices.Reverse();
 
             // Generate outline indices
-            outlineIndices = new List<int>(coordinates.Count * 2);
-            for (int i = 0; i < coordinates.Count; i++)
+            List<int> lineIndices = new List<int>(vertices.Count * 2);
+            for (int i = 0; i < vertices.Count; i++)
             {
-                outlineIndices.Add(i);
-                outlineIndices.Add((i + 1) % coordinates.Count);
+                lineIndices.Add(i);
+                lineIndices.Add((i + 1) % vertices.Count);
             }
 
             // Triangulate
-            return PolygonTriangulator.TriangulateShell(coordinates);
+            List<int> fillIndices = PolygonTriangulator.TriangulateShell(vertices);
+            return new TriangulationResult(vertices.ToArray(), fillIndices.ToArray(), lineIndices.ToArray());
+        }
+
+        public static async Task<TriangulationResult> TriangulateAsync(Polygon polygon)
+        {
+            return await Task.Run(() => PolygonTriangulator.Triangulate(polygon));
         }
 
         //private static IList<IList<Vector2>> RemoveHoles(IList<Vector2> shell, IList<IList<Vector2>> holes)
@@ -203,19 +233,19 @@ namespace Salvac.Interface.Rendering
         //    }
         //}
 
-        private static IList<int> TriangulateShell(IList<Vector2> coordinates)
+        private static List<int> TriangulateShell(List<Vector2> coordinates)
         {
             if (coordinates.Count < 3) throw new ArgumentException("There are not enough coordinates to make a polygon.", "coordinates");
             else if (coordinates.Count == 3)
             {
                 if (IsCounterClockwise(coordinates.ToArray()))
-                    return coordinates.Reverse().Select((v, i) => i).ToList();
+                    return new List<int>((coordinates as IEnumerable<int>).Reverse().Select((v, i) => i));
                 else
                     return coordinates.Select((v, i) => i).ToList();
             }
 
             // Load vertices
-            IList<Vertex> vertices = new List<Vertex>(coordinates.Count);
+            List<Vertex> vertices = new List<Vertex>(coordinates.Count);
             for (int i = 0; i < coordinates.Count; i++)
             {
                 vertices.Add(new Vertex()

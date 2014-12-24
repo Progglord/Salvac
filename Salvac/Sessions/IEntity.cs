@@ -24,8 +24,7 @@ namespace Salvac.Sessions
     public interface IEntity
     {
         event EventHandler Updated;
-        event EventHandler Destroyed;
 
-        ISession Session { get; }
+        bool IsInactive { get; }
     }
 }

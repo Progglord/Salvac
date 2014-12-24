@@ -23,6 +23,7 @@ using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using Salvac.Data.Profiles;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
@@ -33,8 +34,8 @@ namespace Salvac.Interface.Rendering
 
         private int _vertexBuffer;
         private int _vertexCount;
-        private int _polygonIndexBuffer;
-        private int _polygonIndexCount;
+        private int _fillIndexBuffer;
+        private int _fillIndexCount;
         private int _lineIndexBuffer;
         private int _lineIndexCount;
 
@@ -84,33 +85,31 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void Load()
+        public async Task LoadAsync()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
             if (this.IsLoaded) return;
 
-            IList<Vector2> vertices;
-            IList<int> lineIndices;
-            IList<int> indices = PolygonTriangulator.Triangulate(_polygon, out vertices, out lineIndices);
-            _vertexCount = vertices.Count;
+            var result = await PolygonTriangulator.TriangulateAsync(_polygon);
+            _vertexCount = result.Vertices.Length;
 
             // Create vertex buffer
             _vertexBuffer = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBuffer);
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(Vector2.SizeInBytes * _vertexCount), vertices.ToArray(), BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(Vector2.SizeInBytes * _vertexCount), result.Vertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
             // Create polygon index buffer
-            _polygonIndexCount = indices.Count;
-            _polygonIndexBuffer = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _polygonIndexBuffer);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(_polygonIndexCount * sizeof(int)), indices.ToArray(), BufferUsageHint.StaticDraw);
+            _fillIndexCount = result.FillIndices.Length;
+            _fillIndexBuffer = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _fillIndexBuffer);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(_fillIndexCount * sizeof(int)), result.FillIndices, BufferUsageHint.StaticDraw);
 
             // Create line index buffer
-            _lineIndexCount = lineIndices.Count;
+            _lineIndexCount = result.LineIndices.Length;
             _lineIndexBuffer = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _lineIndexBuffer);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(_lineIndexCount * sizeof(int)), lineIndices.ToArray(), BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(_lineIndexCount * sizeof(int)), result.LineIndices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
 
             // We don't need the plain polygon anymore
@@ -120,7 +119,7 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void RenderBackground(Viewport viewport)
+        public void RenderFill(Viewport viewport)
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
             if (!this.IsLoaded) return;
@@ -130,10 +129,10 @@ namespace Salvac.Interface.Rendering
             GL.Color4(_theme.FillColor);
             GL.EnableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBuffer);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _polygonIndexBuffer);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _fillIndexBuffer);
             GL.VertexPointer(2, VertexPointerType.Float, Vector2.SizeInBytes, IntPtr.Zero);
 
-            GL.DrawElements(PrimitiveType.Triangles, _polygonIndexCount, DrawElementsType.UnsignedInt, 0);
+            GL.DrawElements(PrimitiveType.Triangles, _fillIndexCount, DrawElementsType.UnsignedInt, 0);
 
             GL.DisableClientState(ArrayCap.VertexArray);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
@@ -145,7 +144,7 @@ namespace Salvac.Interface.Rendering
 #endif
         }
 
-        public void RenderBoundaries(Viewport viewport)
+        public void RenderLines(Viewport viewport)
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PolygonRenderer");
             if (!this.IsLoaded) return;
@@ -189,9 +188,9 @@ namespace Salvac.Interface.Rendering
                             GL.DeleteBuffer(_vertexBuffer);
                         _vertexBuffer = 0;
 
-                        if (_polygonIndexBuffer != 0)
-                            GL.DeleteBuffer(_polygonIndexBuffer);
-                        _polygonIndexBuffer = 0;
+                        if (_fillIndexBuffer != 0)
+                            GL.DeleteBuffer(_fillIndexBuffer);
+                        _fillIndexBuffer = 0;
 
                         if (_lineIndexBuffer != 0)
                             GL.DeleteBuffer(_lineIndexBuffer);

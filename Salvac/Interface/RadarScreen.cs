@@ -33,6 +33,7 @@ using Salvac.Data.Profiles;
 using System.Diagnostics;
 using Salvac.Sessions;
 using Salvac.Data.World;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface
 {
@@ -45,6 +46,8 @@ namespace Salvac.Interface
 
         private PriorityCollection<IInputListener> _inputListeners;
         private PriorityCollection<IRenderable> _renderables;
+
+        private bool _invalidating;
 
         public bool IsDisposed
         { get; private set; }
@@ -66,36 +69,44 @@ namespace Salvac.Interface
             _renderables = new PriorityCollection<IRenderable>(r => r.RenderPriority);
 
             _textRenderer = new TextRenderer(_viewport);
+            _invalidating = false;
         }
 
-        public void AddRenderables(bool load, params IRenderable[] renderables)
+        public async Task AddRenderablesAsync(bool load, params IRenderable[] renderables)
         {
             if (renderables == null) throw new ArgumentNullException("renderables");
-            if (renderables.Any(r => r == null || r.IsDisposed)) throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
 
             if (load)
             {
                 foreach (IRenderable renderable in renderables)
                 {
-                    renderable.Load();
-                    renderable.Updated += (s, e) => { _window.Invalidate(); };
+                    if (renderable == null || renderable.IsDisposed)
+                        throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
+
+                    await renderable.LoadAsync();
+                    renderable.Updated += (s, e) => { this.Invalidate(); };
                 }
             }
             else
             {
                 foreach (IRenderable renderable in renderables)
-                    renderable.Updated += (s, e) => { _window.Invalidate(); };
+                {
+                    if (renderable == null || renderable.IsDisposed)
+                        throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
+
+                    renderable.Updated += (s, e) => { this.Invalidate(); };
+                }
             }
 
             _renderables.AddRange(renderables);
             _inputListeners.AddRange(renderables.Where(r => r is IInputListener).Select(r => r as IInputListener));
 
-            _window.Invalidate();
+            this.Invalidate();
         }
 
-        public void AddRenderables(params IRenderable[] renderables)
+        public Task AddRenderables(params IRenderable[] renderables)
         {
-            this.AddRenderables(false, renderables);
+            return this.AddRenderablesAsync(false, renderables);
         }
 
         public void RemoveRenderables(params IRenderable[] renderables)
@@ -106,6 +117,7 @@ namespace Salvac.Interface
             {
                 if (renderable != null)
                 {
+                    renderable.Dispose();
                     _renderables.Remove(renderable);
 
                     if (renderable is IInputListener)
@@ -117,34 +129,34 @@ namespace Salvac.Interface
         }
 
 
-        public void Load()
+        public async Task LoadAsync()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("RadarScreen");
             if (this.IsLoaded) return;
             if (!ProfileManager.Current.IsLoaded) throw new NoProfileException();
 
             // Load TextRenderer and Renderables
-            _textRenderer.Load();
-            this.AddRenderables(true, new EnvironmentRenderer(), new DebugScreen(_textRenderer));
+            await _textRenderer.Load();
+            await this.AddRenderablesAsync(true, new EnvironmentRenderer(), new DebugScreen(_textRenderer));
 
             // Setup viewport
-            LoadViewport();
+            await LoadViewportAsync();
 
             // Setup events
             _window.Resize += (s, e) =>
             { _viewport.Resize(_window.ClientSize.Width, _window.ClientSize.Height); };
 
-            SessionManager.Current.SessionOpened += SessionLoaded;
-            SessionManager.Current.SessionClosed += SessionClosed;
+            SessionManager.Current.SessionOpened += Session_Opened;
+            SessionManager.Current.SessionClosed += Session_Closed;
+
+            this.IsLoaded = true;
 
             // Load session if there is any
             if (SessionManager.Current.IsLoaded)
-                SessionLoaded(null, EventArgs.Empty);
-
-            this.IsLoaded = true;
+                Session_Opened(null, EventArgs.Empty);
         }
 
-        private void LoadViewport()
+        private async Task LoadViewportAsync()
         {
             // Get maximum bounding rectangle
             using (var cmd = WorldManager.Current.Model.CreateCommand())
@@ -153,7 +165,7 @@ namespace Salvac.Interface
                 cmd.CommandText = string.Format("SELECT min(ST_MinX({0})) AS minX, min(ST_MinY({0})) as minY, max(ST_MaxX({0})) as maxX, max(ST_MaxY({0})) as maxY ", geom);
                 cmd.CommandText += string.Format("FROM {0}", ProfileManager.Current.Profile.SectorView.Name);
 
-                using (var reader = cmd.ExecuteReader())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     if (!reader.Read() || !SpatiaLiteHelper.CheckRow(reader))
                     {
@@ -172,21 +184,77 @@ namespace Salvac.Interface
             }
         }
 
-        private void SessionLoaded(object sender, EventArgs e)
-        {
-            this.AddRenderables(true, SessionManager.Current.Session.Entities.Where(p => p is IPilot).Select(p => new PilotRenderer(p as IPilot, _textRenderer)).ToArray());
 
-            SessionManager.Current.Session.EntityAdded += (_s, _e) =>
+        private void Invalidate()
+        {
+            if (!_invalidating)
             {
-                if (_e.Entity is IPilot)
-                    this.AddRenderables(true, new PilotRenderer(_e.Entity as IPilot, _textRenderer));
-            };
+                _window.Invalidate();
+                _invalidating = true;
+            }
         }
 
-        private void SessionClosed(object sender, EventArgs e)
+
+        private async void Session_Opened(object sender, EventArgs e)
         {
+            if (this.IsDisposed || !this.IsLoaded) return;
+
+            // Ensure we're on rendering thread
+            if (_window.InvokeRequired)
+            {
+                _window.Invoke(new EventHandler(Session_Opened), sender, e);
+                return;
+            }
+
+            SessionManager.Current.Session.EntityAdded += Session_EntityAdded;
+            SessionManager.Current.Session.EntityDestroyed += Session_EntityDestroyed;
+            await this.AddRenderablesAsync(true, SessionManager.Current.Session.Entities.Where(p => p is IPilot).Select(p => new PilotRenderer(p as IPilot, _textRenderer)).ToArray());
+        }
+
+        private void Session_Closed(object sender, EventArgs e)
+        {
+            if (this.IsDisposed || !this.IsLoaded) return;
+
+            // Ensure we're on rendering thread
+            if (_window.InvokeRequired)
+            {
+                _window.Invoke(new EventHandler(Session_Closed), sender, e);
+                return;
+            }
+
             this.RemoveRenderables(_renderables.Where(r => r is PilotRenderer).ToArray());
         }
+
+        private async void Session_EntityAdded(object sender, EntityEventArgs e)
+        {
+            if (this.IsDisposed || !this.IsLoaded) return;
+
+            // Ensure we're on rendering thread
+            if (_window.InvokeRequired)
+            {
+                _window.Invoke(new EventHandler<EntityEventArgs>(Session_EntityAdded), sender, e);
+                return;
+            }
+
+            if (e.Entity is IPilot)
+                await this.AddRenderablesAsync(true, new PilotRenderer(e.Entity as IPilot, _textRenderer));
+        }
+
+        private void Session_EntityDestroyed(object sender, EntityEventArgs e)
+        {
+            if (this.IsDisposed || !this.IsLoaded) return;
+
+            // Ensure we're on rendering thread
+            if (_window.InvokeRequired)
+            {
+                _window.Invoke(new EventHandler<EntityEventArgs>(Session_EntityDestroyed), sender, e);
+                return;
+            }
+
+            if (e.Entity is IPilot)
+                this.RemoveRenderables(_renderables.Where(r => r is PilotRenderer && (r as PilotRenderer).Pilot == e.Entity).ToArray());
+        }
+        
 
         public void Render()
         {
@@ -202,6 +270,7 @@ namespace Salvac.Interface
             }
 
             _textRenderer.End();
+            _invalidating = false;
         }
 
 
@@ -255,7 +324,7 @@ namespace Salvac.Interface
             {
                 delta.X = -delta.X;
                 _viewport.AdjustedMove(delta, wheelDelta / 500f);
-                _window.Invalidate();
+                this.Invalidate();
             }
         }
 
@@ -276,7 +345,7 @@ namespace Salvac.Interface
             if (wheelDelta != 0)
             {
                 _viewport.AdjustedMove(Vector2.Zero, wheelDelta / 1000f);
-                _window.Invalidate();
+                this.Invalidate();
             }
         }
 
@@ -309,6 +378,7 @@ namespace Salvac.Interface
                         renderable.Dispose();
                 }
                 this.IsDisposed = true;
+                this.IsLoaded = false;
             }
         }
 

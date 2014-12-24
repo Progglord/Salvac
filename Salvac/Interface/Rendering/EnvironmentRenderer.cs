@@ -26,6 +26,7 @@ using Salvac.Data;
 using Salvac.Data.World;
 using Salvac.Data.Profiles;
 using System.Drawing;
+using System.Threading.Tasks;
 
 namespace Salvac.Interface.Rendering
 {
@@ -35,6 +36,7 @@ namespace Salvac.Interface.Rendering
 
         private List<KeyValuePair<long, PolygonRenderer>> _polygonRenderers;
         private Comparison<KeyValuePair<long, PolygonRenderer>> _comparison;
+        private object _polygonRenderersLocker = new object();
 
 
         public bool IsDisposed
@@ -68,19 +70,24 @@ namespace Salvac.Interface.Rendering
         }
 
 
-        public void Load()
+        public async Task LoadAsync()
         {
             if (this.IsDisposed) throw new ObjectDisposedException("EnvironmentRenderer");
             if (this.IsLoaded) return;
 
-            LoadRenderers();
+            await LoadRenderersAsync();
 
             ProfileManager.Current.Profile.Sectors.EnableStatesChanged += (s, e) =>
             {
+                if (this.IsDisposed || !this.IsLoaded) return;
+
                 // Update renderer enabled states
-                foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
-                    kvp.Value.IsEnabled = ProfileManager.Current.Profile.Sectors.EnabledContent.Any(x => x.Id == kvp.Key);
-                _polygonRenderers.Sort(_comparison);
+                lock (_polygonRenderersLocker)
+                {
+                    foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
+                        kvp.Value.IsEnabled = ProfileManager.Current.Profile.Sectors.EnabledContent.Any(x => x.Id == kvp.Key);
+                    _polygonRenderers.Sort(_comparison);
+                }
 
                 // Trigger updated event
                 if (Updated != null)
@@ -90,14 +97,14 @@ namespace Salvac.Interface.Rendering
             this.IsLoaded = true;
         }
 
-        private void LoadRenderers()
+        private async Task LoadRenderersAsync()
         {
             using (var cmd = WorldManager.Current.Model.CreateCommand())
             {
                 cmd.CommandText = string.Format("SELECT id, ST_AsBinary(ST_Transform(geometry, {0})) AS geom FROM {1} WHERE id IN ({2})",
                     ProfileManager.Current.Profile.ProjectionId, ProfileManager.Current.Profile.SectorView.Name,
                     String.Join(",", ProfileManager.Current.Profile.Sectors.Select(s => s.Id.ToString())));
-                using (var reader = cmd.ExecuteReader())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
@@ -108,7 +115,7 @@ namespace Salvac.Interface.Rendering
                         }
 
                         WkbReader wkb = new WkbReader();
-                        IGeometry geom = wkb.Read(reader.GetStream(1));
+                        IGeometry geom = await Task.Run<IGeometry>(() => wkb.Read(reader.GetStream(1)));
 
                         if (!(geom is Polygon))
                         {
@@ -126,7 +133,7 @@ namespace Salvac.Interface.Rendering
 
                         PolygonRenderer renderer = new PolygonRenderer(geom as Polygon, theme);
                         renderer.IsEnabled = ProfileManager.Current.Profile.Sectors.EnabledContent.Any(s => s.Id == id);
-                        renderer.Load();
+                        await renderer.LoadAsync();
 
                         _polygonRenderers.Add(new KeyValuePair<long, PolygonRenderer>(id, renderer));
                     }
@@ -147,18 +154,20 @@ namespace Salvac.Interface.Rendering
             GL.PushMatrix();
             viewport.LoadView();
 
-            foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
+            lock (_polygonRenderersLocker)
             {
-                if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
-                kvp.Value.RenderBackground(viewport);
-            }
+                foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
+                {
+                    if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
+                    kvp.Value.RenderFill(viewport);
+                }
 
-            foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
-            {
-                if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
-                kvp.Value.RenderBoundaries(viewport);
+                foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
+                {
+                    if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
+                    kvp.Value.RenderLines(viewport);
+                }
             }
-
 #if DEBUG
             if (DebugScreen.DrawBoundingBoxes)
                 RenderBoundingBoxes(viewport);
@@ -170,24 +179,27 @@ namespace Salvac.Interface.Rendering
 #if DEBUG
         private void RenderBoundingBoxes(Viewport viewport)
         {
-            foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
+            lock (_polygonRenderersLocker)
             {
-                if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
-                if (!viewport.IsVisible(kvp.Value.BoundingBox) || viewport.IsCluttered(kvp.Value.BoundingBox)) continue;
-
-                RectangleF box = kvp.Value.BoundingBox;
-
-                GL.Color4(Color.Green);
-                GL.Begin(PrimitiveType.LineStrip);
+                foreach (KeyValuePair<long, PolygonRenderer> kvp in _polygonRenderers)
                 {
-                    GL.Vertex2(box.Left, box.Bottom);
-                    GL.Vertex2(box.Right, box.Bottom);
-                    GL.Vertex2(box.Right, box.Top);
-                    GL.Vertex2(box.Left, box.Top);
-                    GL.Vertex2(box.Left, box.Bottom);
+                    if (!kvp.Value.IsEnabled) break; // We can break here -> list is sorted -> enabled ones are at the top
+                    if (!viewport.IsVisible(kvp.Value.BoundingBox) || viewport.IsCluttered(kvp.Value.BoundingBox)) continue;
+
+                    RectangleF box = kvp.Value.BoundingBox;
+
+                    GL.Color4(Color.Green);
+                    GL.Begin(PrimitiveType.LineStrip);
+                    {
+                        GL.Vertex2(box.Left, box.Bottom);
+                        GL.Vertex2(box.Right, box.Bottom);
+                        GL.Vertex2(box.Right, box.Top);
+                        GL.Vertex2(box.Left, box.Top);
+                        GL.Vertex2(box.Left, box.Bottom);
+                    }
+                    GL.End();
+                    GL.Color4(Color.White);
                 }
-                GL.End();
-                GL.Color4(Color.White);
             }
         }
 #endif

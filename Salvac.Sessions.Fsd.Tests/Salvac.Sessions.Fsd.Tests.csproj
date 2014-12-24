@@ -5,23 +5,22 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E2386E2F-1CCB-4EE7-89B9-9A9951DC6E14}</ProjectGuid>
+    <ProjectGuid>{3E080D1C-7F82-47B5-9742-EE7589BB650D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Salvac.Sessions.Fsd</RootNamespace>
-    <AssemblyName>Salvac.Sessions.Fsd</AssemblyName>
+    <RootNamespace>Salvac.Sessions.Fsd.Tests</RootNamespace>
+    <AssemblyName>Salvac.Sessions.Fsd.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-    <NuGetPackageImportStamp>a36fac54</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>44b384cc</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <PlatformTarget>x86</PlatformTarget>
-    <OutputPath>..\builds\Debug\plugins\</OutputPath>
+    <OutputPath>bin\x86\Debug\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <PlatformTarget>x86</PlatformTarget>
-    <OutputPath>..\builds\Release\x86\</OutputPath>
+    <OutputPath>bin\x86\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Antlr4.Runtime.net45">
@@ -33,10 +32,9 @@
     <Reference Include="DotSpatial.Topology">
       <HintPath>..\packages\DotSpatial.Topology.1.7\lib\net40-Client\DotSpatial.Topology.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -44,65 +42,25 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Client.cs" />
-    <Compile Include="FsdConnectDialog.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="FsdConnectDialog.Designer.cs">
-      <DependentUpon>FsdConnectDialog.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FsdController.cs" />
-    <Compile Include="FsdEntity.cs" />
-    <Compile Include="FsdPilot.cs" />
-    <Compile Include="FsdSessionProvider.cs" />
-    <Compile Include="FsdSession.cs" />
-    <Compile Include="MessageEventArgs.cs" />
-    <Compile Include="Messages\DeleteAtcMessage.cs" />
-    <Compile Include="Messages\DeletePilotMessage.cs" />
-    <Compile Include="Messages\FsdLexer.g4.cs">
-      <DependentUpon>FsdLexer.g4</DependentUpon>
-    </Compile>
-    <Compile Include="Messages\FsdParser.g4.cs">
-      <DependentUpon>FsdParser.g4</DependentUpon>
-    </Compile>
-    <Compile Include="Messages\InvalidMessageException.cs" />
-    <Compile Include="Messages\Message.cs" />
-    <Compile Include="Messages\MessageErrorStrategy.cs" />
-    <Compile Include="Messages\MessageParser.cs" />
-    <Compile Include="Messages\MessageVisitor.cs" />
-    <Compile Include="Messages\PilotPositionMessage.cs" />
-    <Compile Include="Messages\PilotRating.cs" />
-    <Compile Include="Messages\WeatherDataMessage.cs" />
+    <Compile Include="MessageParseTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Antlr4 Include="Messages\FsdLexer.g4">
-      <Generator>MSBuild:Compile</Generator>
-      <CustomToolNamespace>Salvac.Sessions.Fsd.Messages</CustomToolNamespace>
-      <Listener>False</Listener>
-    </Antlr4>
-    <Antlr4 Include="Messages\FsdParser.g4">
-      <Generator>MSBuild:Compile</Generator>
-      <CustomToolNamespace>Salvac.Sessions.Fsd.Messages</CustomToolNamespace>
-      <Listener>False</Listener>
-    </Antlr4>
-    <None Include="packages.config" />
-    <None Include="Salvac.Sessions.Fsd.licenseheader" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Salvac.Data\Salvac.Data.csproj">
       <Project>{57940cb1-4910-46a6-9418-21f5cbc40ad1}</Project>
       <Name>Salvac.Data</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Salvac\Salvac.csproj">
-      <Project>{d9fc0a7a-3d76-4e7f-a93f-88eb0c244268}</Project>
-      <Name>Salvac</Name>
+    <ProjectReference Include="..\Salvac.Sessions.Fsd\Salvac.Sessions.Fsd.csproj">
+      <Project>{e2386e2f-1ccb-4ee7-89b9-9a9951dc6e14}</Project>
+      <Name>Salvac.Sessions.Fsd</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="FsdConnectDialog.resx">
-      <DependentUpon>FsdConnectDialog.cs</DependentUpon>
-    </EmbeddedResource>
+    <None Include="packages.config" />
+    <None Include="Salvac.Sessions.Fsd.Tests.licenseheader" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
