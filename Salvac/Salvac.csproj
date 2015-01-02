@@ -75,7 +75,7 @@
       <DependentUpon>ConnectDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Interface\Rendering\EnvironmentRenderer.cs" />
-    <Compile Include="Interface\Rendering\PilotRenderer.cs" />
+    <Compile Include="Interface\Rendering\PlaneRenderer.cs" />
     <Compile Include="Interface\Rendering\DebugScreen.cs" />
     <Compile Include="Interface\Rendering\PolygonRenderer.cs" />
     <Compile Include="Interface\Rendering\PolygonTriangulator.cs" />
@@ -102,9 +102,10 @@
     <Compile Include="Sessions\EntityEventArgs.cs" />
     <Compile Include="Sessions\IController.cs" />
     <Compile Include="Sessions\IEntity.cs" />
-    <Compile Include="Sessions\IPilot.cs" />
+    <Compile Include="Sessions\IPlane.cs" />
     <Compile Include="Sessions\ISessionProvider.cs" />
     <Compile Include="Sessions\ISession.cs" />
+    <Compile Include="Sessions\PlanePosition.cs" />
     <Compile Include="Sessions\SessionClosedEventArgs.cs" />
     <Compile Include="WorldManager.cs" />
     <EmbeddedResource Include="Interface\ConnectDialog.resx">

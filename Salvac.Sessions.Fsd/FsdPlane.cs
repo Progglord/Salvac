@@ -14,56 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-using DotSpatial.Topology;
+using System;
 using OpenTK;
 using Salvac.Data.Types;
 using Salvac.Sessions.Fsd.Messages;
-using System;
-using System.Diagnostics;
 
 namespace Salvac.Sessions.Fsd
 {
-    public sealed class FsdPilot : FsdEntity, IPilot
+    public sealed class FsdPlane : FsdEntity, IPlane
     {
-        private bool _hadFirstPositionReport;
-
         public string Callsign
         { get { return this.FsdName; } }
 
-        public Coordinate Position
-        { get; set; }
-
-        public Coordinate LastPosition
+        public PlanePosition Position
         { get; private set; }
-
-        public Speed GroundSpeed
-        { get; private set; }
-
-        public Distance Altitude
-        { get; set; }
 
         
-        public FsdPilot(string fsdName) :
-            base(fsdName)
+        public FsdPlane(PlanePositionMessage message) :
+            base(message.Source)
         {
-            _hadFirstPositionReport = false;
-
-            this.Position = null;
-            this.LastPosition = null;
-            this.GroundSpeed = Speed.Zero;
-            this.Altitude = Distance.Zero;
+            HandlePosition(message); // Just to ensure, plane is really created by message.
         }
 
 
-        public void HandlePosition(PilotPositionMessage message)
+        public void HandlePosition(PlanePositionMessage message)
         {
-            if (_hadFirstPositionReport)
-                this.LastPosition = this.Position;
             this.Position = message.Position;
-            _hadFirstPositionReport = true;
-
-            this.GroundSpeed = message.GroundSpeed;
-            this.Altitude = message.TrueAltitude;
 
             this.OnUpdated();
             this.WakeUp();

@@ -18,8 +18,8 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
-using DotSpatial.Topology;
 using Salvac.Data.Types;
+using OpenTK;
 
 namespace Salvac.Sessions.Fsd.Messages
 {
@@ -40,7 +40,7 @@ namespace Salvac.Sessions.Fsd.Messages
             return base.Visit(tree);
         }
 
-        public override object VisitPilotPosition(FsdParser.PilotPositionContext context)
+        public override object VisitPlanePosition(FsdParser.PlanePositionContext context)
         {
             SquawkMode sqkMode = default(SquawkMode);
             switch (context.sqkMode.Text.ToUpper())
@@ -50,19 +50,21 @@ namespace Salvac.Sessions.Fsd.Messages
                 case "Y": sqkMode = SquawkMode.Ident; break;
                 default: throw new InvalidMessageException(string.Format("Invalid squawk mode token: \"{0}\"", context.sqkMode.Text));
             }
-            Squawk squawk = default(Squawk);
-            try { squawk = Squawk.Parse(context.squawk.Text); }
-            catch (ArgumentException ex) { throw new InvalidMessageException(string.Format("Invalid squawk token: \"{0}\"", context.squawk.Text), ex); }
-            int rating = int.Parse(context.rating.Start.Text);
-            Coordinate position = new Coordinate(double.Parse(context.lon.Start.Text, CultureInfo.InvariantCulture.NumberFormat),
-                double.Parse(context.lat.Start.Text, CultureInfo.InvariantCulture.NumberFormat));
-            Distance trueAltitude = Distance.FromFeet(int.Parse(context.altitude.Start.Text));
-            Speed groundSpeed = Speed.FromKnots(int.Parse(context.speed.Start.Text));
-            uint pbh = uint.Parse(context.pbh.Start.Text);
-            int altitudeDiff = int.Parse(context.altitudeDiff.Start.Text);
+            var squawk = Squawk.Parse(context.squawk.Text);
+            var rating = int.Parse(context.rating.Start.Text);
+            var pbh = uint.Parse(context.pbh.Start.Text);
 
-            this.Messages.Add(new PilotPositionMessage(context.source.Text, sqkMode, squawk, rating, position, trueAltitude, 
-                groundSpeed, pbh, altitudeDiff));
+            var pressAltDiff = Distance.FromFeet(int.Parse(context.pressAltDiff.Start.Text));
+            var position = new PlanePosition();
+            position.Position = new Vector2d(double.Parse(context.lon.Start.Text, CultureInfo.InvariantCulture.NumberFormat),
+                double.Parse(context.lat.Start.Text, CultureInfo.InvariantCulture.NumberFormat));
+            position.GroundSpeed = Speed.FromKnots(int.Parse(context.speed.Start.Text));
+            position.Elevation = Distance.FromFeet(int.Parse(context.elevation.Start.Text));
+            position.PressureAltitude = position.Elevation + pressAltDiff;
+            position.OnGround = (pbh & 0x2) > 0;
+            position.TrueHeading = Angle.FromDegrees((double)((pbh >> 2) & 0x3FF) * 360d / 1024d);
+
+            this.Messages.Add(new PlanePositionMessage(context.source.Text, sqkMode, squawk, rating, position, pbh));
             return null;
         }
 
@@ -73,15 +75,21 @@ namespace Salvac.Sessions.Fsd.Messages
             return null;
         }
 
-        public override object VisitDeletePilot(FsdParser.DeletePilotContext context)
+        public override object VisitDeletePlane(FsdParser.DeletePlaneContext context)
         {
-            this.Messages.Add(new DeletePilotMessage(context.source.Text));
+            long unkown = 0;
+            if (context.unkown != null) unkown = long.Parse(context.unkown.Start.Text);
+
+            this.Messages.Add(new DeletePlaneMessage(context.source.Text, unkown));
             return null;
         }
 
         public override object VisitDeleteAtc(FsdParser.DeleteAtcContext context)
         {
-            this.Messages.Add(new DeleteAtcMessage(context.source.Text));
+            long unkown = 0;
+            if (context.unkown != null) unkown = long.Parse(context.unkown.Start.Text);
+
+            this.Messages.Add(new DeleteAtcMessage(context.source.Text, unkown));
             return null;
         }
     }

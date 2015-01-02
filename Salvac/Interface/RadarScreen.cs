@@ -39,6 +39,9 @@ namespace Salvac.Interface
 {
     public class RadarScreen : IDisposable
     {
+        private const double MAX_INVALIDATE_RATE = 50d;
+
+
         private GLControl _window;
 
         private Viewport _viewport;
@@ -86,7 +89,7 @@ namespace Salvac.Interface
                     await renderable.LoadAsync();
                     renderable.Updated += (s, e) => 
                     { 
-                        if (renderable.IsEnabled) this.Invalidate(); 
+                        if (renderable.IsEnabled) Invalidate(); 
                     };
                 }
             }
@@ -99,7 +102,7 @@ namespace Salvac.Interface
 
                     renderable.Updated += (s, e) =>
                     {
-                        if (renderable.IsEnabled) this.Invalidate();
+                        if (renderable.IsEnabled) Invalidate();
                     };
                 }
             }
@@ -193,11 +196,10 @@ namespace Salvac.Interface
 
         private void Invalidate()
         {
-            if (!_invalidating)
-            {
-                _window.Invalidate();
-                _invalidating = true;
-            }
+            if (_invalidating) return;
+
+            _window.Invalidate();
+            _invalidating = true;
         }
 
 
@@ -214,7 +216,7 @@ namespace Salvac.Interface
 
             SessionManager.Current.Session.EntityAdded += Session_EntityAdded;
             SessionManager.Current.Session.EntityDestroyed += Session_EntityDestroyed;
-            await this.AddRenderablesAsync(true, SessionManager.Current.Session.Entities.Where(p => p is IPilot).Select(p => new PilotRenderer(p as IPilot, _textRenderer)).ToArray());
+            await this.AddRenderablesAsync(true, SessionManager.Current.Session.Entities.Where(p => p is IPlane).Select(p => new PlaneRenderer(p as IPlane, _textRenderer)).ToArray());
         }
 
         private void Session_Closed(object sender, EventArgs e)
@@ -228,7 +230,7 @@ namespace Salvac.Interface
                 return;
             }
 
-            this.RemoveRenderables(_renderables.Where(r => r is PilotRenderer).ToArray());
+            this.RemoveRenderables(_renderables.Where(r => r is PlaneRenderer).ToArray());
         }
 
         private async void Session_EntityAdded(object sender, EntityEventArgs e)
@@ -242,8 +244,8 @@ namespace Salvac.Interface
                 return;
             }
 
-            if (e.Entity is IPilot)
-                await this.AddRenderablesAsync(true, new PilotRenderer(e.Entity as IPilot, _textRenderer));
+            if (e.Entity is IPlane)
+                await this.AddRenderablesAsync(true, new PlaneRenderer(e.Entity as IPlane, _textRenderer));
         }
 
         private void Session_EntityDestroyed(object sender, EntityEventArgs e)
@@ -257,8 +259,8 @@ namespace Salvac.Interface
                 return;
             }
 
-            if (e.Entity is IPilot)
-                this.RemoveRenderables(_renderables.Where(r => r is PilotRenderer && (r as PilotRenderer).Pilot == e.Entity).ToArray());
+            if (e.Entity is IPlane)
+                this.RemoveRenderables(_renderables.Where(r => r is PlaneRenderer && (r as PlaneRenderer).Plane == e.Entity).ToArray());
         }
         
 
@@ -330,7 +332,7 @@ namespace Salvac.Interface
             {
                 delta.X = -delta.X;
                 _viewport.AdjustedMove(delta, wheelDelta / 500f);
-                this.Invalidate();
+                Invalidate();
             }
         }
 
@@ -351,7 +353,7 @@ namespace Salvac.Interface
             if (wheelDelta != 0)
             {
                 _viewport.AdjustedMove(Vector2.Zero, wheelDelta / 1000f);
-                this.Invalidate();
+                Invalidate();
             }
         }
 

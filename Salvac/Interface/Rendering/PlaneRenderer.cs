@@ -21,20 +21,21 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using DotSpatial.Projections;
 using System.Threading.Tasks;
-using DotSpatial.Topology;
 using Salvac.Data.Profiles;
+using Salvac.Data.Types;
 
 namespace Salvac.Interface.Rendering
 {
-    public sealed class PilotRenderer : IRenderable
+    public sealed class PlaneRenderer : IRenderable
     {
         public event EventHandler Updated;
 
         private TextRenderer _textRenderer;
+        private Viewport _viewport;
 
+        private PlanePosition? _lastPosition;
         private Vector2 _position;
         private Vector2 _speed;
-        private Viewport _viewport;
 
         public bool IsDisposed
         { get; private set; }
@@ -45,70 +46,75 @@ namespace Salvac.Interface.Rendering
         public bool IsEnabled
         { get; set; }
 
-        public IPilot Pilot
+        public IPlane Plane
         { get; private set; }
 
         public int RenderPriority
         { get { return Priorities.Pilot; } }
 
 
-        public PilotRenderer(IPilot pilot, TextRenderer textRenderer)
+        public PlaneRenderer(IPlane pilot, TextRenderer textRenderer)
         {
             if (pilot == null) throw new ArgumentNullException("pilot");
             if (textRenderer == null) throw new ArgumentNullException("textRenderer");
 
-            this.IsDisposed = false;
-            this.IsLoaded = false;
-            this.IsEnabled = true;
-            this.Pilot = pilot;
+            IsDisposed = false;
+            IsLoaded = false;
+            IsEnabled = true;
+            Plane = pilot;
 
             _textRenderer = textRenderer;
+            _lastPosition = null;
+            _position = Vector2.Zero;
+            _speed = Vector2.Zero;
         }
 
 
         public async Task LoadAsync()
         {
-            if (this.IsDisposed) throw new ObjectDisposedException("PilotRenderer");
-            if (this.IsLoaded) return;
+            if (IsDisposed) throw new ObjectDisposedException("PilotRenderer");
+            if (IsLoaded) return;
 
             await Task.Run(() =>
             {
-                this.IsLoaded = true;
-                Pilot_Update(null, EventArgs.Empty);
-                this.Pilot.Updated += Pilot_Update;
+                IsLoaded = true;
+                Plane_Update(null, EventArgs.Empty);
+                Plane.Updated += Plane_Update;
             });
         }
 
 
-        private void Pilot_Update(object sender, EventArgs e)
+        private void Plane_Update(object sender, EventArgs e)
         {
-            if (this.IsDisposed || !this.IsLoaded) return;
+            if (IsDisposed || !IsLoaded) return;
 
-            if (this.Pilot.LastPosition == null)
+            if (!_lastPosition.HasValue)
             {
-                _position = this.Project(this.Pilot.Position)[0];
-                _speed = Vector2.Zero;
+                _position = Project(Plane.Position.Position)[0];
+                _speed = (float)Plane.Position.GroundSpeed.AsMetersPerSecond * 60f *
+                    new Vector2((float)Angle.Sin(Plane.Position.TrueHeading), (float)Angle.Cos(Plane.Position.TrueHeading));
             }
             else
             {
-                Vector2[] vectors = this.Project(this.Pilot.Position, this.Pilot.LastPosition);
+                Vector2[] vectors = Project(Plane.Position.Position, _lastPosition.Value.Position);
                 _position = vectors[0];
 
                 Vector2 diff = vectors[0] - vectors[1];
                 if (diff.Length == 0)
-                    _speed = Vector2.Zero;
+                    _speed = (float)Plane.Position.GroundSpeed.AsMetersPerSecond * 60f *
+                        new Vector2((float)Angle.Sin(Plane.Position.TrueHeading), (float)Angle.Cos(Plane.Position.TrueHeading));
                 else
-                    _speed = (float)(this.Pilot.GroundSpeed.AsMetersPerSecond * 60d) * (vectors[0] - vectors[1]).Normalized();
+                    _speed = (float)(Plane.Position.GroundSpeed.AsMetersPerSecond * 60d) * (vectors[0] - vectors[1]).Normalized();
             }
 
-            if (_viewport == null || this.IsVisible(_viewport))
+            if (_viewport == null || IsVisible(_viewport))
             {
                 if (this.Updated != null)
                     this.Updated(this, EventArgs.Empty);
             }
         }
 
-        private Vector2[] Project(params Coordinate[] coordinates)
+        private Vector2[] Project(params Vector2d[] coordinates)
         {
             double[] xy = new double[coordinates.Length * 2];
             for (int i = 0; i < coordinates.Length; i++)
@@ -132,7 +138,7 @@ namespace Salvac.Interface.Rendering
 
         private LabelTheme GetTheme()
         {
-            if (this.Pilot.IsInactive)
+            if (this.Plane.IsInactive)
                 return ProfileManager.Current.Profile.Theme.InactiveLabelTheme;
             else
                 return ProfileManager.Current.Profile.Theme.NormalLabelTheme;
@@ -141,12 +147,11 @@ namespace Salvac.Interface.Rendering
 
         public void Render(Viewport viewport)
         {
-            if (this.IsDisposed) throw new ObjectDisposedException("PilotRenderer");
-            if (!this.IsLoaded) return;
+            if (IsDisposed) throw new ObjectDisposedException("PilotRenderer");
+            if (!IsLoaded) return;
             _viewport = viewport;
 
-            if (!this.IsEnabled) return;
-            if (!this.IsVisible(viewport)) return;
+            if (!IsEnabled || !IsVisible(viewport)) return;
 
             GL.MatrixMode(MatrixMode.Modelview);
             GL.PushMatrix();
@@ -154,7 +159,7 @@ namespace Salvac.Interface.Rendering
             GL.Translate(_position.X, _position.Y, 0d);
 
             RenderSpeedVector(viewport);
-            RenderPilot(viewport);
+            RenderPlane(viewport);
             RenderLabel(viewport);
             
             GL.PopMatrix();
@@ -166,10 +171,10 @@ namespace Salvac.Interface.Rendering
 
         private void RenderSpeedVector(Viewport viewport)
         {
-            if (!this.GetTheme().EnableSpeedVector) return;
+            if (!GetTheme().EnableSpeedVector) return;
 
-            GL.Color4(this.GetTheme().SpeedVectorColor);
-            GL.LineWidth(this.GetTheme().DotLineWidth);
+            GL.Color4(GetTheme().SpeedVectorColor);
+            GL.LineWidth(GetTheme().DotLineWidth);
 
             GL.Begin(PrimitiveType.Lines);
             {
@@ -182,18 +187,18 @@ namespace Salvac.Interface.Rendering
             GL.Color4(Color.White);
         }
 
-        private void RenderPilot(Viewport viewport)
+        private void RenderPlane(Viewport viewport)
         {
             GL.PushMatrix();
             float scale = 1f / viewport.Zoom;
             GL.Scale(scale, scale, 1f);
 
-            GL.Color4(this.GetTheme().DotLineColor);
-            GL.LineWidth(this.GetTheme().DotLineWidth);
+            GL.Color4(GetTheme().DotLineColor);
+            GL.LineWidth(GetTheme().DotLineWidth);
 
             GL.Begin(PrimitiveType.Lines);
             {
-                RenderDotLines(this.GetTheme().DotType, (float)this.GetTheme().DotWidth);
+                RenderDotLines(GetTheme().DotType, (float)GetTheme().DotWidth);
             }
             GL.End();
 
@@ -228,11 +233,12 @@ namespace Salvac.Interface.Rendering
             }
         }
 
-
         private void RenderLabel(Viewport viewport)
         {
-            Brush brush = new SolidBrush(this.GetTheme().LabelTextColor);
-            _textRenderer.DrawString(this.Pilot.Callsign, this.GetTheme().LabelTextFont, brush, new Vector2(10f, 10f));
+            string label = string.Format("{0}\r\n{1:0}ft {2:0}kt", Plane.Callsign, Plane.Position.Elevation.AsFeet, Plane.Position.GroundSpeed.AsKnots);
+
+            Brush brush = new SolidBrush(GetTheme().LabelTextColor);
+            _textRenderer.DrawString(label, GetTheme().LabelTextFont, brush, new Vector2(10f, 10f));
         }
 
 
@@ -244,19 +250,19 @@ namespace Salvac.Interface.Rendering
 
         private void Dispose(bool disposing)
         {
-            if (!this.IsDisposed)
+            if (!IsDisposed)
             {
                 if (disposing)
                 {
                 }
-                this.IsDisposed = true;
-                this.IsLoaded = false;
+                IsDisposed = true;
+                IsLoaded = false;
             }
         }
 
         public void Dispose()
         {
-            this.Dispose(true);
+            Dispose(true);
             GC.SuppressFinalize(this);
         }
     }

@@ -23,14 +23,20 @@ namespace Salvac.Sessions.Fsd.Messages
     {
         public const string TYPE = "#DA";
 
-        public DeleteAtcMessage(string source) :
+        public long Unkown
+        { get; set; }
+
+
+        public DeleteAtcMessage(string source, long unkown = 0) :
             base(TYPE, source, null)
-        { }
+        {
+            Unkown = unkown;
+        }
 
         protected override IEnumerable<string> GetTokens()
         {
-            yield return this.Source;
-            yield return "0"; // return dummy for unkown integer field.
+            yield return Source;
+            yield return Unkown.ToString(); // return dummy for unkown integer field.
         }
     }
 }

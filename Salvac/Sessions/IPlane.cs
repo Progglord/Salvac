@@ -15,22 +15,19 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Collections.Generic;
+using DotSpatial.Topology;
+using Salvac.Data.Types;
+using OpenTK;
 
-namespace Salvac.Sessions.Fsd.Messages
+namespace Salvac.Sessions
 {
-    public sealed class DeletePilotMessage : Message
+    public interface IPlane : IEntity
     {
-        public const string TYPE = "#DP";
+        string Callsign { get; }
 
-        public DeletePilotMessage(string source) :
-            base(TYPE, source, null)
-        { }
-
-        protected override IEnumerable<string> GetTokens()
-        {
-            yield return this.Source;
-            yield return "0"; // return dummy for unkown integer field.
-        }
+        /// <summary>
+        /// Current position
+        /// </summary>
+        PlanePosition Position { get; }
     }
 }

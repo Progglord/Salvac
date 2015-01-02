@@ -19,8 +19,8 @@ lexer grammar FsdLexer;
 // FSD message types 
 
 WEATHERDATA		: '&D'	-> pushMode(Data) ;
-PILOTPOSITION	: '@'	-> pushMode(Data) ;
-DELETEPILOT		: '#DP'	-> pushMode(Data) ;
+PLANEPOSITION	: '@'	-> pushMode(Data) ;
+DELETEPLANE		: '#DP'	-> pushMode(Data) ;
 DELETEATC		: '#DA' -> pushMode(Data) ;
 
 // Data types

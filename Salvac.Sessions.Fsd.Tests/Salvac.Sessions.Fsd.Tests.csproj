@@ -26,13 +26,10 @@
     <Reference Include="Antlr4.Runtime.net45">
       <HintPath>..\packages\Antlr4.Runtime.4.3.0\lib\net45\Antlr4.Runtime.net45.dll</HintPath>
     </Reference>
-    <Reference Include="DotSpatial.Serialization">
-      <HintPath>..\packages\DotSpatial.Serialization.1.7\lib\net40-Client\DotSpatial.Serialization.dll</HintPath>
-    </Reference>
-    <Reference Include="DotSpatial.Topology">
-      <HintPath>..\packages\DotSpatial.Topology.1.7\lib\net40-Client\DotSpatial.Topology.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="OpenTK, Version=1.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
+      <HintPath>..\packages\OpenTK.1.1.1589.5942\lib\NET40\OpenTK.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -53,6 +50,10 @@
     <ProjectReference Include="..\Salvac.Sessions.Fsd\Salvac.Sessions.Fsd.csproj">
       <Project>{e2386e2f-1ccb-4ee7-89b9-9a9951dc6e14}</Project>
       <Name>Salvac.Sessions.Fsd</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Salvac\Salvac.csproj">
+      <Project>{d9fc0a7a-3d76-4e7f-a93f-88eb0c244268}</Project>
+      <Name>Salvac</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -71,6 +71,7 @@
     <Compile Include="Profiles\Profile.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Types\Angle.cs" />
     <Compile Include="Types\Frequency.cs" />
     <Compile Include="Types\Pressure.cs" />
     <Compile Include="Types\Speed.cs" />

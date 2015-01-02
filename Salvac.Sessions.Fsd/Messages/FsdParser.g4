@@ -20,23 +20,28 @@ options {
 	tokenVocab = FsdLexer ;
 }
 
-message : pilotPosition END?
+message : planePosition END?
 		| weatherData END?
-		| deletePilot END?
+		| deletePlane END?
 		| deleteAtc END?
 		;
 
 		 
 weatherData		: type=WEATHERDATA source=FSDNAME SEP destination=FSDNAME SEP request=integer SEP data=string
 				;
-// request cannot be Squawk, shall be 0, 1 or 2
-// allow numbers for data, too
+// request: shall be 0 (METAR), 1 (TAF) or 2 (SHORTTAF)
 
-pilotPosition	: type=PILOTPOSITION sqkMode=FSDNAME SEP source=FSDNAME SEP squawk=SQUAWK SEP rating=integer SEP lat=float SEP lon=float SEP 
-					altitude=integer SEP speed=integer SEP pbh=integer SEP altitudeDiff=integer
+planePosition	: type=PLANEPOSITION sqkMode=FSDNAME SEP source=FSDNAME SEP squawk=SQUAWK SEP rating=integer SEP lat=float SEP lon=float SEP 
+					elevation=integer SEP speed=integer SEP pbh=integer SEP pressAltDiff=integer
 				;
+// sqkMode: shall be N (On), S (Off), Y (Ident)
+// elevation: Elevation above MSL [Feet]
+// speed: Ground Speed [Knots]
+// pbh: weird encoding of pitch, bank and heading (probably magnetic, who knows?)
+// pressAltDiff: Pressure Altitude (Indicated with baro setting standard) - Elevation above MSL [Feet]
 
-deletePilot		: type=DELETEPILOT source=FSDNAME (SEP unkown=integer)?
+
+deletePlane		: type=DELETEPLANE source=FSDNAME (SEP unkown=integer)?
 				;
 deleteAtc		: type=DELETEATC source=FSDNAME (SEP unkown=integer)?
 				;

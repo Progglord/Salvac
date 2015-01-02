@@ -213,12 +213,13 @@ namespace Salvac.Sessions.Fsd
             {
                 while (_handlingQueue.Count > 0 && !_cancellationToken.IsCancellationRequested)
                 {
-#if DEBUG 
-                    DebugScreen.ClientMessageHandlingLength = _handlingQueue.Count;
-#endif
                     string str;
                     lock (_handlingQueueLocker)
                         str = _handlingQueue.Dequeue();
+
+#if DEBUG
+                    DebugScreen.ClientMessageHandlingLength = _handlingQueue.Count;
+#endif
 
                     // Parse message
                     Message message;

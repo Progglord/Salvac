@@ -16,8 +16,8 @@
 
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using DotSpatial.Topology;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenTK;
 using Salvac.Data.Types;
 using Salvac.Sessions.Fsd.Messages;
 using System;
@@ -50,38 +50,44 @@ namespace Salvac.Sessions.Fsd.Tests
         [TestMethod]
         public void PilotPositionTest()
         {
-            PilotPositionMessage msg = this.ParseOne("@N:TEST123:1200:7:52.75:-8:20000:400:1073741826:100\r\n") as PilotPositionMessage;
+            PlanePositionMessage msg = this.ParseOne("@N:TEST123:1200:7:52.75:-8:20000:400:1073741826:100\r\n") as PlanePositionMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("@", msg.Type);
             Assert.AreEqual(SquawkMode.Charlie, msg.SquawkMode);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.AreEqual(new Squawk(0x280), msg.Squawk);
             Assert.AreEqual(7, msg.Rating);
-            Assert.AreEqual(new Coordinate(-8d, 52.75d), msg.Position);
-            Assert.AreEqual(Distance.FromFeet(20000d), msg.TrueAltitude);
-            Assert.AreEqual(Speed.FromKnots(400d), msg.GroundSpeed);
+            Assert.AreEqual(new Vector2d(-8d, 52.75d), msg.Position.Position);
+            Assert.AreEqual(Distance.FromFeet(20000d), msg.Position.Elevation);
+            Assert.AreEqual(Speed.FromKnots(400d), msg.Position.GroundSpeed);
             Assert.AreEqual(1073741826u, msg.PitchBankHeading);
-            Assert.AreEqual(true, msg.OnGround);
-            Assert.AreEqual(100, msg.AltitudeDifference);
+            Assert.AreEqual(true, msg.Position.OnGround);
+            Assert.AreEqual(Distance.FromFeet(20000d + 100d), msg.Position.PressureAltitude);
+            Assert.AreEqual(Angle.Zero, msg.Position.TrueHeading);
+            Assert.AreEqual("@N:TEST123:1200:7:52.75:-8:20000:400:1073741826:100\r\n", msg.Decompose());
 
-            msg = this.ParseOne("@S:TEST123:7700:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PilotPositionMessage;
+            msg = this.ParseOne("@S:TEST123:7700:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PlanePositionMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual(SquawkMode.Standby, msg.SquawkMode);
             Assert.AreEqual(Squawk.Emergency, msg.Squawk);
-            Assert.AreEqual(new Coordinate(-8d, 52d), msg.Position);
-            Assert.AreEqual(Distance.FromFeet(5564d), msg.TrueAltitude);
-            Assert.AreEqual(Speed.FromKnots(2450d), msg.GroundSpeed);
+            Assert.AreEqual(new Vector2d(-8d, 52d), msg.Position.Position);
+            Assert.AreEqual(Distance.FromFeet(5564d), msg.Position.Elevation);
+            Assert.AreEqual(Speed.FromKnots(2450d), msg.Position.GroundSpeed);
             Assert.AreEqual(1077591040u, msg.PitchBankHeading);
-            Assert.AreEqual(false, msg.OnGround);
-            Assert.AreEqual(-45, msg.AltitudeDifference);
+            Assert.AreEqual(false, msg.Position.OnGround);
+            Assert.AreEqual(Distance.FromFeet(5564d - 45d), msg.Position.PressureAltitude);
+            Assert.AreEqual(Angle.West, msg.Position.TrueHeading);
+            Assert.AreEqual("@S:TEST123:7700:7:52:-8:5564:2450:1077591040:-45\r\n", msg.Decompose());
 
-            msg = this.ParseOne("@Y:TEST123:7700:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PilotPositionMessage;
+            msg = this.ParseOne("@Y:TEST123:7700:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PlanePositionMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual(SquawkMode.Ident, msg.SquawkMode);
+            Assert.AreEqual("@Y:TEST123:7700:7:52:-8:5564:2450:1077591040:-45\r\n", msg.Decompose());
 
-            msg = this.ParseOne("@Y:TEST123:741:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PilotPositionMessage;
+            msg = this.ParseOne("@Y:TEST123:741:7:0052:-0008:5564:2450:1077591040:-45\r\n") as PlanePositionMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual(new Squawk(0x1E1), msg.Squawk);
+            Assert.AreEqual("@Y:TEST123:0741:7:52:-8:5564:2450:1077591040:-45\r\n", msg.Decompose());
 
             // Check exceptions for missing data.
             try { this.ParseOne("@:A:7000:2:0:0:0:0:0:0\r\n"); Assert.Fail("Did not recognize missing squawk mode."); }
@@ -149,19 +155,23 @@ namespace Salvac.Sessions.Fsd.Tests
             Assert.AreEqual("BBB", msg.Destination);
             Assert.AreEqual(WeatherDataRequestType.Metar, msg.RequestType);
             Assert.AreEqual("DATA", msg.Data);
+            Assert.AreEqual("&DAAA:BBB:0:DATA\r\n", msg.Decompose());
 
             msg = this.ParseOne("&DA:B:1:DATA AND MORE DATA /-\r\n") as WeatherDataMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual(WeatherDataRequestType.Taf, msg.RequestType);
             Assert.AreEqual("DATA AND MORE DATA /-", msg.Data);
+            Assert.AreEqual("&DA:B:1:DATA AND MORE DATA /-\r\n", msg.Decompose());
 
             msg = this.ParseOne("&DA:B:0:12345\r\n") as WeatherDataMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("12345", msg.Data);
+            Assert.AreEqual("&DA:B:0:12345\r\n", msg.Decompose());
 
             msg = this.ParseOne("&DA:B:0:-12.345\r\n") as WeatherDataMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("-12.345", msg.Data);
+            Assert.AreEqual("&DA:B:0:-12.345\r\n", msg.Decompose());
 
             // Check exceptions for missing data.
             try { this.ParseOne("&D:5T:0:D\r\n"); Assert.Fail("Did not recognize missing source."); }
@@ -196,16 +206,18 @@ namespace Salvac.Sessions.Fsd.Tests
         [TestMethod]
         public void DeletePilotTest()
         {
-            DeletePilotMessage msg = this.ParseOne("#DPTEST123:45789\r\n") as DeletePilotMessage;
+            DeletePlaneMessage msg = this.ParseOne("#DPTEST123:45789\r\n") as DeletePlaneMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("#DP", msg.Type);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.IsTrue(msg.IsBroadcast);
+            Assert.AreEqual("#DPTEST123:45789\r\n", msg.Decompose());
 
-            msg = this.ParseOne("#DPTEST123") as DeletePilotMessage;
+            msg = this.ParseOne("#DPTEST123") as DeletePlaneMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.IsTrue(msg.IsBroadcast);
+            Assert.AreEqual("#DPTEST123:0\r\n", msg.Decompose());
 
             try { this.ParseOne("#DP:0"); Assert.Fail("Did no recognize missing source."); }
             catch (AssertFailedException) { throw; }
@@ -227,11 +239,13 @@ namespace Salvac.Sessions.Fsd.Tests
             Assert.AreEqual("#DA", msg.Type);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.IsTrue(msg.IsBroadcast);
+            Assert.AreEqual("#DATEST123:45789\r\n", msg.Decompose());
 
             msg = this.ParseOne("#DATEST123") as DeleteAtcMessage;
             Assert.IsNotNull(msg);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.IsTrue(msg.IsBroadcast);
+            Assert.AreEqual("#DATEST123:0\r\n", msg.Decompose());
 
             try { this.ParseOne("#DA:0"); Assert.Fail("Did no recognize missing source."); }
             catch (AssertFailedException) { throw; }

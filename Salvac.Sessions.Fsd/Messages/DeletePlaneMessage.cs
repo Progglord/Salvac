@@ -15,34 +15,28 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using DotSpatial.Topology;
-using Salvac.Data.Types;
-using OpenTK;
+using System.Collections.Generic;
 
-namespace Salvac.Sessions
+namespace Salvac.Sessions.Fsd.Messages
 {
-    public interface IPilot : IEntity
+    public sealed class DeletePlaneMessage : Message
     {
-        string Callsign { get; }
+        public const string TYPE = "#DP";
 
-        /// <summary>
-        /// Position in WGS84.
-        /// </summary>
-        Coordinate Position { get; }
+        public long Unkown
+        { get; set; }
 
-        /// <summary>
-        /// Gets the last known position. <c>null</c> if there is no last position yet.
-        /// </summary>
-        Coordinate LastPosition { get; }
 
-        /// <summary>
-        /// Gets the ground speed.
-        /// </summary>
-        Speed GroundSpeed { get; }
+        public DeletePlaneMessage(string source, long unkown = 0) :
+            base(TYPE, source, null)
+        {
+            Unkown = unkown;
+        }
 
-        /// <summary>
-        /// Altitude above mean sea level (MSL).
-        /// </summary>
-        Distance Altitude { get; }
+        protected override IEnumerable<string> GetTokens()
+        {
+            yield return Source;
+            yield return Unkown.ToString(); // return dummy for unkown integer field.
+        }
     }
 }

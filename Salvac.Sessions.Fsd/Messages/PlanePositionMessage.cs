@@ -15,10 +15,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Collections.Generic;
-using DotSpatial.Topology;
-using Salvac.Data.Types;
 using System.Globalization;
+using System.Collections.Generic;
+using Salvac.Data.Types;
 
 namespace Salvac.Sessions.Fsd.Messages
 {
@@ -32,7 +31,7 @@ namespace Salvac.Sessions.Fsd.Messages
         Last = Ident
     }
 
-    public sealed class PilotPositionMessage : Message
+    public sealed class PlanePositionMessage : Message
     {
         public const string TYPE = "@";
 
@@ -45,35 +44,16 @@ namespace Salvac.Sessions.Fsd.Messages
         public int Rating
         { get; private set; }
 
-        public Coordinate Position
-        { get; private set; }
 
-        public Distance TrueAltitude
-        { get; private set; }
-
-        public Speed GroundSpeed
-        { get; private set; }
+        public PlanePosition Position
+        { get; set; }
 
         public uint PitchBankHeading
         { get; private set; }
 
-        public bool OnGround
-        {
-            get
-            {
-                if (BitConverter.IsLittleEndian)
-                    return (this.PitchBankHeading & 0x2) > 0;
-                else
-                    return (this.PitchBankHeading & 0x80000000) > 0;
-            }
-        }
 
-        public int AltitudeDifference
-        { get; private set; }
-
-
-        public PilotPositionMessage(string source, SquawkMode squawkMode, Squawk squawk, int rating, Coordinate position,
-            Distance trueAltitude, Speed groundSpeed, uint pitchBankHeading, int altitudeDifference) :
+        public PlanePositionMessage(string source, SquawkMode squawkMode, Squawk squawk, int rating, 
+            PlanePosition position, uint pitchBankHeading) :
             base(TYPE, source, null)
         {
             if (squawkMode < Messages.SquawkMode.First || squawkMode > Messages.SquawkMode.Last) throw new ArgumentOutOfRangeException("squawkMode");
@@ -82,10 +62,7 @@ namespace Salvac.Sessions.Fsd.Messages
             this.Squawk = squawk;
             this.Rating = rating;
             this.Position = position;
-            this.TrueAltitude = trueAltitude;
-            this.GroundSpeed = groundSpeed;
             this.PitchBankHeading = pitchBankHeading;
-            this.AltitudeDifference = altitudeDifference;
         }
 
         protected override IEnumerable<string> GetTokens()
@@ -99,12 +76,12 @@ namespace Salvac.Sessions.Fsd.Messages
             yield return this.Source;
             yield return this.Squawk.ToString();
             yield return ((int)this.Rating).ToString();
-            yield return this.Position.Y.ToString(CultureInfo.InvariantCulture.NumberFormat);
-            yield return this.Position.X.ToString(CultureInfo.InvariantCulture.NumberFormat);
-            yield return ((int)this.TrueAltitude.AsFeet).ToString();
-            yield return ((int)this.GroundSpeed.AsKnots).ToString();
+            yield return this.Position.Position.Y.ToString(CultureInfo.InvariantCulture.NumberFormat);
+            yield return this.Position.Position.X.ToString(CultureInfo.InvariantCulture.NumberFormat);
+            yield return this.Position.Elevation.AsFeet.ToString("0");
+            yield return this.Position.GroundSpeed.AsKnots.ToString("0");
             yield return this.PitchBankHeading.ToString();
-            yield return this.AltitudeDifference.ToString();
+            yield return (this.Position.PressureAltitude.AsFeet - this.Position.Elevation.AsFeet).ToString("0");
         }
     }
 }

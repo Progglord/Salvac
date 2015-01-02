@@ -17,7 +17,6 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using DotSpatial.Topology;
 using Salvac.Data.Types;
 using System.Net.Sockets;
 using Salvac.Sessions.Fsd.Messages;
@@ -106,28 +105,26 @@ namespace Salvac.Sessions.Fsd
 
         private void HandleMessage(object sender, MessageEventArgs e)
         {
-            if (e.Message is PilotPositionMessage)
-                this.HandlePilotPosition(e.Message as PilotPositionMessage);
-            else if (e.Message is DeleteAtcMessage || e.Message is DeletePilotMessage)
+            if (e.Message is PlanePositionMessage)
+                this.HandlePlanePosition(e.Message as PlanePositionMessage);
+            else if (e.Message is DeleteAtcMessage || e.Message is DeletePlaneMessage)
                 this.HandleDelete(e.Message);
         }
 
-        private void HandlePilotPosition(PilotPositionMessage message)
+        private void HandlePlanePosition(PlanePositionMessage message)
         {
             FsdEntity entity = this.GetEntityFromFsdName(message.Source);
             if (entity == null)
             {
                 // Create new one
-                FsdPilot pilot = new FsdPilot(message.Source);
-                pilot.TimedOut += Entity_TimedOut;
-
-                pilot.HandlePosition(message);
-                this.OnEntityAdded(pilot);
+                FsdPlane plane = new FsdPlane(message);
+                plane.TimedOut += Entity_TimedOut;
+                this.OnEntityAdded(plane);
             }
-            else if (entity is FsdPilot)
-                (entity as FsdPilot).HandlePosition(message);
+            else if (entity is FsdPlane)
+                (entity as FsdPlane).HandlePosition(message);
             else // if this happens, FSD is fucked up. Just notice for debug reasons, then ignore
-                logger.Debug("The non-pilot entity '{0}' sent pilot position message: '{1}'", entity.FsdName, message.Decompose());
+                logger.Debug("The non-plane entity '{0}' sent PlanePositionMessage: '{1}'", entity.FsdName, message.Decompose());
         }
 
         private void HandleDelete(Message message)

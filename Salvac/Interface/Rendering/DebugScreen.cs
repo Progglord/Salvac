@@ -54,8 +54,8 @@ namespace Salvac.Interface.Rendering
 
         static DebugScreen()
         {
-            DebugScreen.FrameTime = new BufferedAverageDouble(15);
-            DebugScreen.ClientReadingTime = new BufferedAverageDouble(50);
+            FrameTime = new BufferedAverageDouble(15);
+            ClientReadingTime = new BufferedAverageDouble(50);
         }
 
         #endregion
@@ -111,7 +111,7 @@ namespace Salvac.Interface.Rendering
             if (!this.IsLoaded) return;
             if (!this.IsEnabled) return;
 
-            string debugString = string.Format("Time: {0:00.000}ms, Environment: {1}, Pilots: {2}",
+            string debugString = string.Format("Time: {0:00.00}ms ; Environment: {1}, Pilots: {2}",
                DebugScreen.FrameTime.Average, DebugScreen.DrawnEnvironment, DebugScreen.DrawnPilots);
 
             if (SessionManager.Current.IsLoaded)
