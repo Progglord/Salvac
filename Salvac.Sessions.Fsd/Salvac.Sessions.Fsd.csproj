@@ -18,6 +18,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <PlatformTarget>x86</PlatformTarget>
     <OutputPath>..\builds\Debug\plugins\</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <PlatformTarget>x86</PlatformTarget>
@@ -32,6 +33,12 @@
     </Reference>
     <Reference Include="DotSpatial.Topology">
       <HintPath>..\packages\DotSpatial.Topology.1.7\lib\net40-Client\DotSpatial.Topology.dll</HintPath>
+    </Reference>
+    <Reference Include="NLog">
+      <HintPath>..\packages\NLog.3.1.0.0\lib\net45\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK, Version=1.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
+      <HintPath>..\packages\OpenTK.1.1.1589.5942\lib\NET40\OpenTK.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -71,7 +78,6 @@
     <Compile Include="Messages\MessageParser.cs" />
     <Compile Include="Messages\MessageVisitor.cs" />
     <Compile Include="Messages\PilotPositionMessage.cs" />
-    <Compile Include="Messages\PilotRating.cs" />
     <Compile Include="Messages\WeatherDataMessage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

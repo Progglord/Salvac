@@ -66,7 +66,7 @@ namespace Salvac.Interface
 
             _viewport = new Viewport(window.Width, window.Height);
             _inputListeners = new PriorityCollection<IInputListener>(l => l.InputPriority);
-            _renderables = new PriorityCollection<IRenderable>(r => r.RenderPriority);
+            _renderables = new PriorityCollection<IRenderable>(r => -r.RenderPriority);
 
             _textRenderer = new TextRenderer(_viewport);
             _invalidating = false;
@@ -84,7 +84,10 @@ namespace Salvac.Interface
                         throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
 
                     await renderable.LoadAsync();
-                    renderable.Updated += (s, e) => { this.Invalidate(); };
+                    renderable.Updated += (s, e) => 
+                    { 
+                        if (renderable.IsEnabled) this.Invalidate(); 
+                    };
                 }
             }
             else
@@ -94,7 +97,10 @@ namespace Salvac.Interface
                     if (renderable == null || renderable.IsDisposed)
                         throw new ArgumentNullException("There is an IRenderable that is disposed or null.");
 
-                    renderable.Updated += (s, e) => { this.Invalidate(); };
+                    renderable.Updated += (s, e) =>
+                    {
+                        if (renderable.IsEnabled) this.Invalidate();
+                    };
                 }
             }
 

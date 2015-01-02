@@ -24,12 +24,14 @@ using Salvac.Sessions.Fsd.Messages;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Threading;
+using NLog;
 
 namespace Salvac.Sessions.Fsd
 {
     public sealed class FsdSession : ISession
     {
         private const int REFRESH_INTERVAL = 500;
+        private static Logger logger = LogManager.GetCurrentClassLogger();
 
         public event EventHandler<SessionClosedEventArgs> Closed;
         public event EventHandler<EntityEventArgs> EntityAdded;
@@ -125,7 +127,7 @@ namespace Salvac.Sessions.Fsd
             else if (entity is FsdPilot)
                 (entity as FsdPilot).HandlePosition(message);
             else // if this happens, FSD is fucked up. Just notice for debug reasons, then ignore
-                Debug.WriteLine(string.Format("The non-pilot entity '{0}' sent pilot position message: '{1}'", entity.FsdName, message.Decompose()));
+                logger.Debug("The non-pilot entity '{0}' sent pilot position message: '{1}'", entity.FsdName, message.Decompose());
         }
 
         private void HandleDelete(Message message)

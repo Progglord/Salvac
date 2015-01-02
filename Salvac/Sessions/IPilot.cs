@@ -17,6 +17,7 @@
 using System;
 using DotSpatial.Topology;
 using Salvac.Data.Types;
+using OpenTK;
 
 namespace Salvac.Sessions
 {
@@ -28,6 +29,16 @@ namespace Salvac.Sessions
         /// Position in WGS84.
         /// </summary>
         Coordinate Position { get; }
+
+        /// <summary>
+        /// Gets the last known position. <c>null</c> if there is no last position yet.
+        /// </summary>
+        Coordinate LastPosition { get; }
+
+        /// <summary>
+        /// Gets the ground speed.
+        /// </summary>
+        Speed GroundSpeed { get; }
 
         /// <summary>
         /// Altitude above mean sea level (MSL).

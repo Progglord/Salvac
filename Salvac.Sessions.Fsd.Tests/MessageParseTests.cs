@@ -56,7 +56,7 @@ namespace Salvac.Sessions.Fsd.Tests
             Assert.AreEqual(SquawkMode.Charlie, msg.SquawkMode);
             Assert.AreEqual("TEST123", msg.Source);
             Assert.AreEqual(new Squawk(0x280), msg.Squawk);
-            Assert.AreEqual(PilotRating.CP, msg.PilotRating);
+            Assert.AreEqual(7, msg.Rating);
             Assert.AreEqual(new Coordinate(-8d, 52.75d), msg.Position);
             Assert.AreEqual(Distance.FromFeet(20000d), msg.TrueAltitude);
             Assert.AreEqual(Speed.FromKnots(400d), msg.GroundSpeed);

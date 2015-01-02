@@ -40,8 +40,23 @@ namespace Salvac.Interface.Rendering
         public static bool DrawBoundingBoxes
         { get; set; }
 
-        public static double LastFrameTime
+
+        public static BufferedAverageDouble FrameTime
         { get; set; }
+
+
+        public static BufferedAverageDouble ClientReadingTime
+        { get; set; }
+
+        public static int ClientMessageHandlingLength
+        { get; set; }
+
+
+        static DebugScreen()
+        {
+            DebugScreen.FrameTime = new BufferedAverageDouble(15);
+            DebugScreen.ClientReadingTime = new BufferedAverageDouble(50);
+        }
 
         #endregion
 
@@ -97,7 +112,13 @@ namespace Salvac.Interface.Rendering
             if (!this.IsEnabled) return;
 
             string debugString = string.Format("Time: {0:00.000}ms, Environment: {1}, Pilots: {2}",
-               DebugScreen.LastFrameTime * 1000d, DebugScreen.DrawnEnvironment, DebugScreen.DrawnPilots);
+               DebugScreen.FrameTime.Average, DebugScreen.DrawnEnvironment, DebugScreen.DrawnPilots);
+
+            if (SessionManager.Current.IsLoaded)
+            {
+                debugString += string.Format("\r\navg. Reading Latency: {0:0.00}ms ; Handling Queue Length: {1}",
+                    DebugScreen.ClientReadingTime.Average, DebugScreen.ClientMessageHandlingLength);
+            }
 
             GL.MatrixMode(MatrixMode.Modelview);
             GL.PushMatrix();
@@ -130,7 +151,7 @@ namespace Salvac.Interface.Rendering
 
         public bool KeyPress(Keys key)
         {
-            if ((key & Keys.F3) != (Keys)0)
+            if (key == Keys.F3)
             {
                 this.IsEnabled = !this.IsEnabled;
                 if (this.Updated != null)

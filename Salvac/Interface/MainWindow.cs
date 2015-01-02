@@ -52,13 +52,12 @@ namespace Salvac.Interface
 
             SessionManager.Current.SessionOpened += (s, e) =>
                 {
-                    toolStripButton1.Text = "Disconnect";
+                    btnConnect.Text = "Disconnect";
                 };
             SessionManager.Current.SessionClosed += (s, e) =>
-            {
-                toolStripButton1.Text = "Connect";
-                MessageBox.Show("Disconnected: " + e.Reason.ToString());
-            };
+                {
+                    btnConnect.Text = "Connect";
+                };
         }
 
         private void CreateGLWindow()
@@ -68,16 +67,16 @@ namespace Salvac.Interface
             glWindow.Name = "glWindow";
             glWindow.VSync = true;
 
-            glWindow.Load += this.glWindow_Load;
-            glWindow.Paint += this.glWindow_Paint;
-            glWindow.MouseClick += this.glWindow_MouseClick;
-            glWindow.MouseDoubleClick += this.glWindow_MouseDoubleClick;
-            glWindow.MouseDown += this.glWindow_MouseDown;
-            glWindow.MouseMove += this.glWindow_MouseMove;
-            glWindow.MouseUp += this.glWindow_MouseUp;
+            glWindow.Load += glWindow_Load;
+            glWindow.Paint += glWindow_Paint;
+            glWindow.MouseClick += glWindow_MouseClick;
+            glWindow.MouseDoubleClick += glWindow_MouseDoubleClick;
+            glWindow.MouseDown += glWindow_MouseDown;
+            glWindow.MouseMove += glWindow_MouseMove;
+            glWindow.MouseUp += glWindow_MouseUp;
             glWindow.MouseWheel += glWindow_MouseWheel;
             glWindow.KeyUp += glWindow_KeyUp;
-            glWindow.Resize += this.glWindow_Resize;
+            glWindow.Resize += glWindow_Resize;
 
             this.Controls.Add(glWindow);
         }
@@ -104,7 +103,7 @@ namespace Salvac.Interface
             await _radarScreen.LoadAsync();
 
             // Load menus
-            mnuLayers.DropDownItems.Clear();
+            btnLayers.DropDownItems.Clear();
             foreach (Layer layer in ProfileManager.Current.Profile.Layers)
             {
                 ToolStripMenuItem item = new ToolStripMenuItem();
@@ -116,33 +115,26 @@ namespace Salvac.Interface
                     ProfileManager.Current.Profile.Sectors.EnableAll(item.Checked, x => layer.Content.Contains(x.Id));
                     glWindow.Invalidate();
                 };
-                mnuLayers.DropDownItems.Add(item);
+                btnLayers.DropDownItems.Add(item);
             }
 
             _loaded = true;
         }
-        
+
 
         private void glWindow_Load(object sender, EventArgs e)
         {
-            try
-            {
-                // Load OpenGL
-                GraphicsContext.CurrentContext.ErrorChecking = true;
-                GL.ClearColor(Color.Black);
-                GL.Enable(EnableCap.Blend);
-                GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
-                RefreshViewport();
+            // Load OpenGL
+            GraphicsContext.CurrentContext.ErrorChecking = true;
+            GL.ClearColor(Color.Black);
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+            RefreshViewport();
 
-                if (ProfileManager.Current.IsLoaded)
-                    this.LoadProfile();
+            if (ProfileManager.Current.IsLoaded)
+                this.LoadProfile();
 
-                ProfileManager.Current.ProfileLoaded += (s, ea) => { this.LoadProfile(); };
-            }
-            catch (Exception ex)
-            {
-                Debug.Fail("Error while loading", ex.ToString());
-            }
+            ProfileManager.Current.ProfileLoaded += (s, ea) => { this.LoadProfile(); };
         }
 
         private void RefreshViewport()
@@ -157,6 +149,7 @@ namespace Salvac.Interface
         private void glWindow_Resize(object sender, EventArgs e)
         {
             if (!_loaded) return;
+            if (this.WindowState == FormWindowState.Minimized) return;
 
             RefreshViewport();
             glWindow.Invalidate();
@@ -165,6 +158,7 @@ namespace Salvac.Interface
         private void glWindow_Paint(object sender, PaintEventArgs e)
         {
             if (!_loaded) return;
+            if (this.WindowState == FormWindowState.Minimized) return;
 
 #if DEBUG
             Stopwatch watch = Stopwatch.StartNew();
@@ -184,13 +178,13 @@ namespace Salvac.Interface
             }
 
 #if DEBUG
-            DebugScreen.LastFrameTime = watch.Elapsed.TotalSeconds;
+            DebugScreen.FrameTime.AddValue(watch.Elapsed.TotalMilliseconds);
 #endif
         }
 
         #endregion
 
-        #region Mouse Input
+        #region Input
 
         private Vector2 _lastMousePosition = Vector2.Zero;
         private MouseButtons _dragButton = MouseButtons.None;
@@ -275,20 +269,6 @@ namespace Salvac.Interface
 
         #endregion
 
-        private void mnuBoundingBoxes_CheckStateChanged(object sender, EventArgs e)
-        {
-            DebugScreen.DrawBoundingBoxes = mnuBoundingBoxes.Checked;
-            glWindow.Invalidate();
-        }
-
-        private void toolStripButton1_Click(object sender, EventArgs e)
-        {
-            if (!SessionManager.Current.IsLoaded)
-                (new ConnectDialog()).ShowDialog();
-            else
-                SessionManager.Current.CloseSession();
-        }
-
 
         private void MainWindow_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -298,6 +278,25 @@ namespace Salvac.Interface
 
             if (SessionManager.Current.IsLoaded)
                 SessionManager.Current.CloseSession();
+        }
+
+        private void btnConnect_Click(object sender, EventArgs e)
+        {
+            if (SessionManager.Current.IsLoaded)
+                SessionManager.Current.CloseSession();
+            else
+                (new ConnectDialog()).ShowDialog();
+        }
+
+        private void btnDebugBoundingBoxes_CheckStateChanged(object sender, EventArgs e)
+        {
+            DebugScreen.DrawBoundingBoxes = btnDebugBoundingBoxes.Checked;
+            glWindow.Invalidate();
+        }
+
+        private void MainWindow_Load(object sender, EventArgs e)
+        {
+
         }
 
     }

@@ -37,6 +37,9 @@ namespace Salvac.Sessions.Fsd
         public bool IsInactive
         { get { return _timer.ElapsedMilliseconds >= INACTIVE_TIME; } }
 
+        protected TimeSpan TimerElapsedTime
+        { get { return _timer.Elapsed; } }
+
 
         public FsdEntity(string fsdName)
         {

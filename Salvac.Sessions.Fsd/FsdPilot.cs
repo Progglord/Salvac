@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using DotSpatial.Topology;
+using OpenTK;
 using Salvac.Data.Types;
 using Salvac.Sessions.Fsd.Messages;
 using System;
@@ -24,18 +25,19 @@ namespace Salvac.Sessions.Fsd
 {
     public sealed class FsdPilot : FsdEntity, IPilot
     {
-        private int INACTIVE_TIME = 10000;
-        private int TIMEOUT_TIME = 60000;
-
-        private Stopwatch _timer;
-
+        private bool _hadFirstPositionReport;
 
         public string Callsign
         { get { return this.FsdName; } }
 
-
         public Coordinate Position
         { get; set; }
+
+        public Coordinate LastPosition
+        { get; private set; }
+
+        public Speed GroundSpeed
+        { get; private set; }
 
         public Distance Altitude
         { get; set; }
@@ -44,29 +46,27 @@ namespace Salvac.Sessions.Fsd
         public FsdPilot(string fsdName) :
             base(fsdName)
         {
-            this.Position = Coordinate.Empty;
+            _hadFirstPositionReport = false;
+
+            this.Position = null;
+            this.LastPosition = null;
+            this.GroundSpeed = Speed.Zero;
             this.Altitude = Distance.Zero;
         }
 
+
         public void HandlePosition(PilotPositionMessage message)
         {
-            bool update = false;
-            if (message.Position != this.Position)
-            {
-                update = true;
-                this.Position = message.Position;
-            }
+            if (_hadFirstPositionReport)
+                this.LastPosition = this.Position;
+            this.Position = message.Position;
+            _hadFirstPositionReport = true;
 
-            if (message.TrueAltitude != this.Altitude)
-            {
-                update = true;
-                this.Altitude = message.TrueAltitude;
-            }
+            this.GroundSpeed = message.GroundSpeed;
+            this.Altitude = message.TrueAltitude;
 
-            if (update)
-                this.OnUpdated();
+            this.OnUpdated();
             this.WakeUp();
         }
-        
     }
 }

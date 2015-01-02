@@ -24,14 +24,19 @@ using System.Collections.Generic;
 using Salvac.Sessions.Fsd.Messages;
 using System.Text;
 using System.Diagnostics;
+using Salvac.Interface.Rendering;
+using NLog;
 
 namespace Salvac.Sessions.Fsd
 {
     public sealed class Client : IDisposable
     {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
+
+
         private const int RECEIVE_TIMEOUT = 10;
-        private const int MAX_MESSAGES_PER_LOOP = 4;
-        private const int READ_BUFFER_SIZE = 512;
+        private const int MAX_MESSAGES_PER_LOOP = 10;
+        private const int READ_BUFFER_SIZE = 256;
 
         public event EventHandler<SessionClosedEventArgs> Disconnected;
         public event EventHandler<MessageEventArgs> MessageReceived;
@@ -96,18 +101,23 @@ namespace Salvac.Sessions.Fsd
                 Exception ex = this.RunMessageQueue();
                 if (ex != null)
                 {
-                    Debug.WriteLine("Client loop cancelled with exception: ");
-                    Debug.WriteLine(ex.ToString());
+                    logger.Error("Client loop cancelled with exception.", ex);
                     break;
                 }
+
+#if DEBUG
+                Stopwatch watch = Stopwatch.StartNew();
+#endif
 
                 ex = this.RunMessageReading();
                 if (ex != null)
                 {
-                    Debug.WriteLine("Client loop cancelled with exception: ");
-                    Debug.WriteLine(ex.ToString());
+                    logger.Error("Client loop cancelled with exception.", ex);
                     break;
                 }
+#if DEBUG
+                DebugScreen.ClientReadingTime.AddValue(watch.Elapsed.TotalMilliseconds);
+#endif
             }
 
             // Close connection and so on
@@ -164,7 +174,7 @@ namespace Salvac.Sessions.Fsd
                 catch (IOException ex) 
                 {
                     if (ex.InnerException != null && ex.InnerException is SocketException)
-                    {
+                    {  
                         SocketException sex = ex.InnerException as SocketException;
                         if (sex.ErrorCode == 10060)
                             return null; // Connection timed out -> this can be because of too low RECEIVE_TIMEOUT. We can ignore this.
@@ -177,13 +187,13 @@ namespace Salvac.Sessions.Fsd
                 catch (ObjectDisposedException ex) { return ex; }
             }
             else return new ObjectDisposedException("Client is not connected anymore.");
+            if (read <= 0) return new ObjectDisposedException("Client is not connected anymore.");
 
-            if (read <= 0) return null;
             _messageBuffer += Encoding.ASCII.GetString(_readBuffer, 0, read);
 
             // Read message buffer
             int endIndex = _messageBuffer.IndexOf(Message.END);
-            for (int i = 0; i < MAX_MESSAGES_PER_LOOP && endIndex > 0 && !_cancellationToken.IsCancellationRequested; i++)
+            while (endIndex >= 0 && !_cancellationToken.IsCancellationRequested)
             {
                 string message = _messageBuffer.Substring(0, endIndex);
                 _messageBuffer = _messageBuffer.Remove(0, endIndex + Message.END.Length);
@@ -203,6 +213,9 @@ namespace Salvac.Sessions.Fsd
             {
                 while (_handlingQueue.Count > 0 && !_cancellationToken.IsCancellationRequested)
                 {
+#if DEBUG 
+                    DebugScreen.ClientMessageHandlingLength = _handlingQueue.Count;
+#endif
                     string str;
                     lock (_handlingQueueLocker)
                         str = _handlingQueue.Dequeue();
@@ -212,8 +225,7 @@ namespace Salvac.Sessions.Fsd
                     try { message = _parser.Parse(str); }
                     catch (InvalidMessageException ex)
                     {
-                        Debug.WriteLine("Unable to parse message '{0}': ", str);
-                        Debug.WriteLine(ex.ToString());
+                        logger.Trace("Unable to parse message '" + str + "'.", ex);
                         continue;
                     }
 
@@ -221,8 +233,7 @@ namespace Salvac.Sessions.Fsd
                     try { this.HandleMessage(message); }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine("Exception while handling message '{0}':", str);
-                        Debug.WriteLine(ex.ToString());
+                        logger.Warn("Exception while handling message '" + str.Trim() + "'.", ex);
                         continue;
                     }
                 }

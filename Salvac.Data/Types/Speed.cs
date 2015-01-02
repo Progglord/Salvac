@@ -25,7 +25,7 @@ namespace Salvac.Data.Types
         Knots
     }
 
-    public struct Speed
+    public struct Speed : IEquatable<Speed>
     {
         public static readonly Speed Zero = new Speed(0d, SpeedUnit.MetersPerSecond);
 

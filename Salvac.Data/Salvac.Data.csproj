@@ -41,6 +41,9 @@
     <Reference Include="DotSpatial.Topology">
       <HintPath>..\packages\DotSpatial.Topology.1.7\lib\net40-Client\DotSpatial.Topology.dll</HintPath>
     </Reference>
+    <Reference Include="NLog">
+      <HintPath>..\packages\NLog.3.1.0.0\lib\net45\NLog.dll</HintPath>
+    </Reference>
     <Reference Include="OpenTK, Version=1.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>..\packages\OpenTK.1.1.1589.5942\lib\NET40\OpenTK.dll</HintPath>
     </Reference>
@@ -58,7 +61,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Profiles\LabelTheme.cs" />
     <Compile Include="Profiles\Sector.cs" />
+    <Compile Include="Profiles\Theme.cs" />
     <Compile Include="SortedEnablingSet.cs" />
     <Compile Include="InvalidDatabaseException.cs" />
     <Compile Include="Profiles\Layer.cs" />
@@ -69,6 +74,7 @@
     <Compile Include="Types\Frequency.cs" />
     <Compile Include="Types\Pressure.cs" />
     <Compile Include="Types\Speed.cs" />
+    <Compile Include="Types\SpeedVector.cs" />
     <Compile Include="Types\Squawk.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="World\ProjectionFilter.cs" />

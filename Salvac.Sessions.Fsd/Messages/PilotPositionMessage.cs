@@ -42,7 +42,7 @@ namespace Salvac.Sessions.Fsd.Messages
         public Squawk Squawk
         { get; private set; }
 
-        public PilotRating PilotRating
+        public int Rating
         { get; private set; }
 
         public Coordinate Position
@@ -72,16 +72,15 @@ namespace Salvac.Sessions.Fsd.Messages
         { get; private set; }
 
 
-        public PilotPositionMessage(string source, SquawkMode squawkMode, Squawk squawk, PilotRating rating, Coordinate position,
+        public PilotPositionMessage(string source, SquawkMode squawkMode, Squawk squawk, int rating, Coordinate position,
             Distance trueAltitude, Speed groundSpeed, uint pitchBankHeading, int altitudeDifference) :
             base(TYPE, source, null)
         {
             if (squawkMode < Messages.SquawkMode.First || squawkMode > Messages.SquawkMode.Last) throw new ArgumentOutOfRangeException("squawkMode");
-            if (rating < Messages.PilotRating.First || rating > Messages.PilotRating.Last) throw new ArgumentOutOfRangeException("rating");
 
             this.SquawkMode = squawkMode;
             this.Squawk = squawk;
-            this.PilotRating = rating;
+            this.Rating = rating;
             this.Position = position;
             this.TrueAltitude = trueAltitude;
             this.GroundSpeed = groundSpeed;
@@ -99,7 +98,7 @@ namespace Salvac.Sessions.Fsd.Messages
             }
             yield return this.Source;
             yield return this.Squawk.ToString();
-            yield return ((int)this.PilotRating).ToString();
+            yield return ((int)this.Rating).ToString();
             yield return this.Position.Y.ToString(CultureInfo.InvariantCulture.NumberFormat);
             yield return this.Position.X.ToString(CultureInfo.InvariantCulture.NumberFormat);
             yield return ((int)this.TrueAltitude.AsFeet).ToString();

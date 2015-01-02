@@ -1,4 +1,5 @@
-﻿// Salvac
+﻿using OpenTK;
+// Salvac
 // Copyright (C) 2014 Oliver Schmidt
 //
 // This program is free software: you can redistribute it and/or modify
@@ -31,6 +32,11 @@ namespace Salvac.Data
                 return diff < (epsilon * double.Epsilon);
             else
                 return diff / (absA + absB) < epsilon;
+        }
+
+        public static bool FloatingEqual2D(Vector2d a, Vector2d b, double epsilon)
+        {
+            return Utils.FloatingEqual(a.X, b.X, epsilon) && Utils.FloatingEqual(a.Y, b.Y, epsilon);
         }
     }
 }

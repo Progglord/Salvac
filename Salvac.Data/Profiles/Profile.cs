@@ -45,7 +45,11 @@ namespace Salvac.Data.Profiles
         public double DeclutterRatio
         { get; private set; }
 
-        public Profile(SectorView view, int projectionId, ProjectionInfo projection, double declutter)
+        public Theme Theme
+        { get; private set; }
+
+
+        public Profile(SectorView view, int projectionId, ProjectionInfo projection, double declutter, Theme theme)
         {
             if (view == null) throw new ArgumentNullException("view");
             if (view.IsDisposed) throw new ObjectDisposedException("view");
@@ -56,6 +60,7 @@ namespace Salvac.Data.Profiles
             this.DeclutterRatio = declutter;
             this.Sectors = new SortedEnablingSet<Sector>((s1, s2) => s1.Id.CompareTo(s2.Id));
             this.Layers = new List<Layer>();
+            this.Theme = theme;
         }
 
 

@@ -21,6 +21,8 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using DotSpatial.Projections;
 using System.Threading.Tasks;
+using DotSpatial.Topology;
+using Salvac.Data.Profiles;
 
 namespace Salvac.Interface.Rendering
 {
@@ -29,10 +31,10 @@ namespace Salvac.Interface.Rendering
         public event EventHandler Updated;
 
         private TextRenderer _textRenderer;
-        private object _locker = new object();
 
         private Vector2 _position;
-        private Font _labelFont;
+        private Vector2 _speed;
+        private Viewport _viewport;
 
         public bool IsDisposed
         { get; private set; }
@@ -71,8 +73,6 @@ namespace Salvac.Interface.Rendering
 
             await Task.Run(() =>
             {
-                _labelFont = new Font("Microsoft Sans Serif", 10);
-
                 this.IsLoaded = true;
                 Pilot_Update(null, EventArgs.Empty);
                 this.Pilot.Updated += Pilot_Update;
@@ -84,43 +84,161 @@ namespace Salvac.Interface.Rendering
         {
             if (this.IsDisposed || !this.IsLoaded) return;
 
-            double[] xy = new double[] { this.Pilot.Position.X, this.Pilot.Position.Y };
-            double[] z = new double[] { 0d };
-            Reproject.ReprojectPoints(xy, z, KnownCoordinateSystems.Geographic.World.WGS1984, ProfileManager.Current.Profile.Projection, 0, 1);
+            if (this.Pilot.LastPosition == null)
+            {
+                _position = this.Project(this.Pilot.Position)[0];
+                _speed = Vector2.Zero;
+            }
+            else
+            {
+                Vector2[] vectors = this.Project(this.Pilot.Position, this.Pilot.LastPosition);
+                _position = vectors[0];
 
-            lock (_locker)
-                _position = new Vector2((float)xy[0], (float)xy[1]);
+                Vector2 diff = vectors[0] - vectors[1];
+                if (diff.Length == 0)
+                    _speed = Vector2.Zero;
+                else
+                    _speed = (float)(this.Pilot.GroundSpeed.AsMetersPerSecond * 60d) * (vectors[0] - vectors[1]).Normalized();
+            }
 
-            if (this.Updated != null)
-                this.Updated(this, EventArgs.Empty);
+            if (_viewport == null || this.IsVisible(_viewport))
+            {
+                if (this.Updated != null)
+                    this.Updated(this, EventArgs.Empty);
+            }
         }
+
+        private Vector2[] Project(params Coordinate[] coordinates)
+        {
+            double[] xy = new double[coordinates.Length * 2];
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                xy[2 * i] = coordinates[i].X;
+                xy[2 * i + 1] = coordinates[i].Y;
+            }
+
+            double[] z = new double[coordinates.Length];
+            Reproject.ReprojectPoints(xy, z, KnownCoordinateSystems.Geographic.World.WGS1984, ProfileManager.Current.Profile.Projection, 0, coordinates.Length);
+
+            Vector2[] vectors = new Vector2[coordinates.Length];
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                vectors[i] = new Vector2((float)(xy[2 * i] * ProfileManager.Current.Profile.Projection.Unit.Meters),
+                    (float)(xy[2 * i + 1] * ProfileManager.Current.Profile.Projection.Unit.Meters));
+            }
+
+            return vectors;
+        }
+
+        private LabelTheme GetTheme()
+        {
+            if (this.Pilot.IsInactive)
+                return ProfileManager.Current.Profile.Theme.InactiveLabelTheme;
+            else
+                return ProfileManager.Current.Profile.Theme.NormalLabelTheme;
+        }
+
 
         public void Render(Viewport viewport)
         {
             if (this.IsDisposed) throw new ObjectDisposedException("PilotRenderer");
             if (!this.IsLoaded) return;
+            _viewport = viewport;
+
             if (!this.IsEnabled) return;
-            if (!viewport.IsVisible(_position))
-                return;
+            if (!this.IsVisible(viewport)) return;
 
             GL.MatrixMode(MatrixMode.Modelview);
             GL.PushMatrix();
             viewport.LoadView();
             GL.Translate(_position.X, _position.Y, 0d);
 
-            GL.Begin(PrimitiveType.Points);
-            GL.Vertex2(Vector2.Zero);
-            GL.End();
-
-            Brush brush = this.Pilot.IsInactive ? Brushes.DarkRed : Brushes.White;
-
-            _textRenderer.DrawString(this.Pilot.Callsign, _labelFont, brush, new Vector2(10f, 10f));
-
+            RenderSpeedVector(viewport);
+            RenderPilot(viewport);
+            RenderLabel(viewport);
+            
             GL.PopMatrix();
 
 #if DEBUG
             DebugScreen.DrawnPilots++;
 #endif
+        }
+
+        private void RenderSpeedVector(Viewport viewport)
+        {
+            if (!this.GetTheme().EnableSpeedVector) return;
+
+            GL.Color4(this.GetTheme().SpeedVectorColor);
+            GL.LineWidth(this.GetTheme().DotLineWidth);
+
+            GL.Begin(PrimitiveType.Lines);
+            {
+                GL.Vertex2(Vector2.Zero);
+                GL.Vertex2(_speed);
+            }
+            GL.End();
+
+            GL.LineWidth(1f);
+            GL.Color4(Color.White);
+        }
+
+        private void RenderPilot(Viewport viewport)
+        {
+            GL.PushMatrix();
+            float scale = 1f / viewport.Zoom;
+            GL.Scale(scale, scale, 1f);
+
+            GL.Color4(this.GetTheme().DotLineColor);
+            GL.LineWidth(this.GetTheme().DotLineWidth);
+
+            GL.Begin(PrimitiveType.Lines);
+            {
+                RenderDotLines(this.GetTheme().DotType, (float)this.GetTheme().DotWidth);
+            }
+            GL.End();
+
+            GL.LineWidth(1f);
+            GL.Color4(Color.White);
+
+            GL.PopMatrix();
+        }
+
+        private void RenderDotLines(AircraftDotType type, float width)
+        {
+            switch (type)
+            {
+                case AircraftDotType.Cross:
+                    GL.Vertex2(-width, width); GL.Vertex2(width, -width);
+                    GL.Vertex2(width, width); GL.Vertex2(-width, -width);
+                    break;
+
+                case AircraftDotType.Diamond:
+                    GL.Vertex2(0, width); GL.Vertex2(width, 0);
+                    GL.Vertex2(width, 0); GL.Vertex2(0, -width);
+                    GL.Vertex2(0, -width); GL.Vertex2(-width, 0);
+                    GL.Vertex2(-width, 0); GL.Vertex2(0, width);
+                    break;
+
+                case AircraftDotType.Square:
+                    GL.Vertex2(-width, width); GL.Vertex2(width, width);
+                    GL.Vertex2(width, width); GL.Vertex2(width, -width);
+                    GL.Vertex2(width, -width); GL.Vertex2(-width, -width);
+                    GL.Vertex2(-width, -width); GL.Vertex2(-width, width);
+                    break;
+            }
+        }
+
+
+        private void RenderLabel(Viewport viewport)
+        {
+            Brush brush = new SolidBrush(this.GetTheme().LabelTextColor);
+            _textRenderer.DrawString(this.Pilot.Callsign, this.GetTheme().LabelTextFont, brush, new Vector2(10f, 10f));
+        }
+
+
+        private bool IsVisible(Viewport viewport)
+        {
+            return viewport.IsVisible(_position);
         }
 
 
@@ -130,7 +248,6 @@ namespace Salvac.Interface.Rendering
             {
                 if (disposing)
                 {
-                    _labelFont.Dispose();
                 }
                 this.IsDisposed = true;
                 this.IsLoaded = false;

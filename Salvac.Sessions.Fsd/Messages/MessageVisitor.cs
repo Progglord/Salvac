@@ -53,7 +53,7 @@ namespace Salvac.Sessions.Fsd.Messages
             Squawk squawk = default(Squawk);
             try { squawk = Squawk.Parse(context.squawk.Text); }
             catch (ArgumentException ex) { throw new InvalidMessageException(string.Format("Invalid squawk token: \"{0}\"", context.squawk.Text), ex); }
-            PilotRating rating = (PilotRating)int.Parse(context.rating.Start.Text);
+            int rating = int.Parse(context.rating.Start.Text);
             Coordinate position = new Coordinate(double.Parse(context.lon.Start.Text, CultureInfo.InvariantCulture.NumberFormat),
                 double.Parse(context.lat.Start.Text, CultureInfo.InvariantCulture.NumberFormat));
             Distance trueAltitude = Distance.FromFeet(int.Parse(context.altitude.Start.Text));
